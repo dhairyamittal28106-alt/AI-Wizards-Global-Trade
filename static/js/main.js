@@ -84,12 +84,16 @@ function sendChatMessage() {
     fetch('/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: message }),
+        body: JSON.stringify({ message: message }),
     })
         .then(response => response.json())
         .then(data => {
             removeLoader(loadingId);
-            let resultText = parseResponse(data);
+
+            // Assume chat responses come back in message2 or fallback to parseResponse
+            let rawText = data.message2 || data.message1 || parseResponse(data) || "No response.";
+            let resultText = typeof marked !== 'undefined' ? marked.parse(rawText) : rawText;
+
             appendMessage(resultText, 'bot-message');
         })
         .catch((error) => {
@@ -155,13 +159,13 @@ function parseResponse(data) {
 }
 
 // --- Main Hero Search Logic ---
-// --- Main Hero Search Logic ---
 function processInput() {
     // 1. Gather Structured Data
     const hsCode = document.getElementById('hsCode').value;
     const actionType = document.getElementById('actionType').value;
-    const quantity = document.getElementById('quantity').value;
-    const price = document.getElementById('price').value;
+    const quantity = parseInt(document.getElementById('quantity').value) || 0;
+    const priceStr = document.getElementById('price').value;
+    const unitPrice = priceStr ? parseFloat(priceStr) : 0;
     const originCountry = document.getElementById('originCountry').value;
     const destCountry = document.getElementById('destCountry').value;
 
@@ -172,16 +176,21 @@ function processInput() {
         return;
     }
 
-    if (!isImport && !price) {
+    if (!isImport && !priceStr) {
         alert("Please enter a Price Per Unit for exports.");
         return;
     }
 
-    // 2. Construct Natural Language Prompt
-    const priceText = isImport ? '' : ` at ${price} USD per unit`;
-    const input = `I want to ${actionType} ${quantity} units of product with ${document.querySelector('.code-tab.active')?.textContent?.trim() || 'HS Code'} ${hsCode}${priceText} from ${originCountry} to ${destCountry}. Please calculate the landed cost, tariffs, and compliance requirements.`;
+    // 2. Construct Payload
+    const payload = {
+        hsCode: hsCode,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        originCountry: originCountry,
+        destinationCountry: destCountry
+    };
 
-    console.log("Constructed Prompt:", input);
+    console.log("Sending Payload:", payload);
 
     // 2.1 Trigger Map Animation
     drawRoute(originCountry, destCountry);
@@ -190,48 +199,123 @@ function processInput() {
     const mainResults = document.getElementById('mainResults');
     const resultCard = document.getElementById('resultCard');
     mainResults.style.display = 'block';
+
+    // Reset contents
     resultCard.innerHTML = '<div class="loader"></div><p style="text-align:center; margin-top:10px;">Analyzing Global Trade Data...</p>';
 
-    // 4. Call Backend for Main Answer
+    // 4. Call Backend
     fetch('/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input }),
+        body: JSON.stringify(payload),
     })
         .then(response => response.json())
         .then(data => {
             // Switch page to lake-blue aurora
             document.body.classList.add('results-shown');
 
-            let resultText = parseResponse(data);
-            resultCard.innerHTML = `
-            <h3 style="margin-bottom: 15px; color: var(--accent-black);">Analysis Result</h3>
-            <div style="font-size: 1.1rem; line-height: 1.6;">${resultText}</div>
-        `;
+            // 1. Extract the raw text without HTML modifications
+            let rawText = "";
+            try {
+                if (data.outputs && data.outputs[0].outputs && data.outputs[0].outputs[0].results) {
+                    const result = data.outputs[0].outputs[0].results;
+                    rawText = result.message?.text || result.message?.data?.text || "";
+                } else if (data.result) {
+                    rawText = data.result;
+                } else if (data.message) {
+                    rawText = data.message;
+                }
+            } catch (e) { }
 
-            // Save to history & add download bar
-            const title = `${document.getElementById('hsCode').value || 'HS'} · ${document.getElementById('originCountry')?.value || ''} → ${document.getElementById('destCountry')?.value || ''}`;
-            saveToHistory({
-                title,
-                type: 'single',
-                meta: `${document.getElementById('actionType')?.value || ''} · Qty ${document.getElementById('quantity')?.value || ''}`,
-                resultHtml: resultText,
-                prompt: input
-            });
-            addReceiptBar(resultCard, resultText, title);
+            if (!rawText) rawText = parseResponse(data); // Fallback
 
-            // Currency panel
-            const _price = parseFloat(document.getElementById('price')?.value) || 0;
-            const _qty = parseFloat(document.getElementById('quantity')?.value) || 1;
-            const _usdTotal = _price * _qty;
-            const _origin = document.getElementById('originCountry')?.value || '';
-            const _dest = document.getElementById('destCountry')?.value || '';
-            if (_usdTotal > 0) showCurrencyPanel(resultCard, _usdTotal, _origin, _dest);
+            // 2. Try to parse it as JSON safely
+            let parsedJson = null;
+            try {
+                // Find first '{' and last '}' to extract raw JSON block cleanly
+                const startIndex = rawText.indexOf('{');
+                const endIndex = rawText.lastIndexOf('}');
 
-            // 6. Trigger AI Advisor "Suggestion"
-            setTimeout(() => {
-                triggerAdvisorSuggestion(input);
-            }, 1500);
+                if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                    let cleanText = rawText.substring(startIndex, endIndex + 1);
+
+                    // Langflow JSON might have escaped newlines or literal \n in string fields
+                    // We also want to replace <br> back to \n if it somehow snuck through
+                    cleanText = cleanText.replace(/<br>/gi, '\\n');
+
+                    parsedJson = JSON.parse(cleanText);
+                } else {
+                    throw new Error("No JSON object bounds found");
+                }
+            } catch (e) {
+                console.warn("Response was not strictly JSON, falling back to raw text:", e);
+                // Fallback struct if parsing fails
+                parsedJson = {
+                    trigger: false,
+                    message1: parseResponse(data), // use html modified text for safety if it's plain text
+                    message2: ""
+                };
+            }
+
+            // Handle the calculate track vs chat track based on the JSON
+            let resultHtml = '';
+
+            // SCENARIO A: Calculate Track (always show message1 if it exists)
+            if (parsedJson.message1 && parsedJson.message1.trim() !== "") {
+                resultHtml += `
+                    <h3 style="margin-bottom: 15px; color: var(--accent-black);">Analysis Result</h3>
+                    <pre style="font-family: inherit; font-size: 1.1rem; line-height: 1.6; white-space: pre-wrap; background: transparent; border: none; padding: 0;">${parsedJson.message1}</pre>
+                `;
+
+                resultCard.innerHTML = resultHtml;
+
+                // Set up visual fluff (currency panel & history)
+                const title = `${hsCode || 'HS'} · ${originCountry || ''} → ${destCountry || ''}`;
+                const _usdTotal = unitPrice * quantity;
+                if (_usdTotal > 0) showCurrencyPanel(resultCard, _usdTotal, originCountry, destCountry);
+
+                // Add receipt bar (optional UI fluff)
+                addReceiptBar(resultCard, parsedJson.message1, title);
+
+            } else {
+                // Fallback if no message1 is provided
+                resultCard.innerHTML = '<p>Query processed.</p>';
+            }
+
+            // SCENARIO B: Trigger is TRUE -> Show message2 in the Chat Popup
+            if (parsedJson.trigger === true && parsedJson.message2) {
+                // Delay slightly to let the main UI render
+                setTimeout(() => {
+                    // Open the Chatbot UI and render the markdown
+                    if (!isChatOpen && typeof openChatPanel === 'function') openChatPanel();
+                    if (typeof toggleChat === 'function' && !isChatOpen && typeof openChatPanel === 'undefined') toggleChat();
+
+                    const mdHtml = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
+
+                    // Depending on which chat is active (panel vs inline)
+                    if (document.getElementById('panelMessages')) {
+                        appendPanelMessage(mdHtml, 'bot-message');
+                    } else if (document.getElementById('chatMessages')) {
+                        appendMessage(mdHtml, 'bot-message');
+                    }
+                }, 1000);
+            } else if (!parsedJson.message1 && parsedJson.message2) {
+                // Standalone chat track fallback
+                mapContainer.style.display = 'none';
+                resultCard.innerHTML = '<p>Query passed to AI Advisor...</p>';
+                setTimeout(() => { mainResults.style.display = 'none'; }, 1000);
+
+                if (!isChatOpen && typeof openChatPanel === 'function') openChatPanel();
+                if (typeof toggleChat === 'function' && !isChatOpen && typeof openChatPanel === 'undefined') toggleChat();
+
+                const mdHtml = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
+
+                if (document.getElementById('panelMessages')) {
+                    appendPanelMessage(mdHtml, 'bot-message');
+                } else if (document.getElementById('chatMessages')) {
+                    appendMessage(mdHtml, 'bot-message');
+                }
+            }
         })
         .catch((error) => {
             console.error('Error:', error);
@@ -239,26 +323,6 @@ function processInput() {
         });
 }
 
-
-function triggerAdvisorSuggestion(query) {
-    // Open Chat if closed
-    if (!isChatOpen) toggleChat();
-
-    // 5. Generate a context-aware suggestion (Simulated Logic based on PDF)
-    // Ideally, this would call a second flow "AI Advisor". 
-    // For now, we simulate the "Optimization Engine" response.
-    let suggestion = "";
-
-    if (query.toLowerCase().includes("cost")) {
-        suggestion = "💡 **Optimization Tip:** I checked alternative routes. sourcing from **Vietnam** could reduce tariffs by **15%** due to the new trade agreement. Would you like to see the comparison?";
-    } else if (query.toLowerCase().includes("hs code")) {
-        suggestion = "🔍 **Compliance Check:** Verify if this HS Code requires a **COO (Certificate of Origin)** to avoid delays at customs. I can generate a template if needed.";
-    } else {
-        suggestion = "✨ **Insight:** I can also calculate the **Carbon Border Adjustment Mechanism (CBAM)** liability for this shipment. Just ask!";
-    }
-
-    appendMessage(suggestion, 'bot-message');
-}
 
 // --- Map Visualization Logic ---
 // Coordinates calibrated to the actual SVG path bounding boxes (viewBox 0 0 1010 660)
@@ -561,12 +625,14 @@ function sendPanelMessage() {
     fetch('/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: message })
+        body: JSON.stringify({ message: message })
     })
         .then(r => r.json())
         .then(data => {
             removePanelTyping(typingId);
-            appendPanelMessage(parseResponse(data), 'bot-message');
+            let rawText = data.message2 || data.message1 || parseResponse(data) || "No response.";
+            let resultText = typeof marked !== 'undefined' ? marked.parse(rawText) : rawText;
+            appendPanelMessage(resultText, 'bot-message');
         })
         .catch(() => {
             removePanelTyping(typingId);
@@ -790,8 +856,6 @@ function processCart() {
                     showCurrencyPanel(resultCard, parseFloat(item.totalValue), item.origin, item.dest);
                 }
             });
-
-            setTimeout(() => triggerAdvisorSuggestion(combinedPrompt), 1500);
         })
         .catch(() => {
             resultCard.innerHTML = '<p style="color:red;text-align:center;">Error processing request. Please try again.</p>';

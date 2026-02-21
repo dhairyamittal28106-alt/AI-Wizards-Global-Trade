@@ -9,8 +9,7 @@ app = Flask(__name__)
 
 # --- Configuration ---
 # All secrets are loaded from .env via load_dotenv() above
-LANGFLOW_API_URL = os.environ.get("LANGFLOW_API_URL", "")
-LANGFLOW_FLOW_ID = os.environ.get("LANGFLOW_FLOW_ID", "")
+LANGFLOW_URL = os.environ.get("LANGFLOW_URL", "")
 LANGFLOW_API_KEY = os.environ.get("LANGFLOW_API_KEY", "")
 
 @app.route('/')
@@ -25,9 +24,13 @@ def process():
     Forwards the input to Langflow (or mocks it if not configured).
     """
     data = request.json
-    user_input = data.get('input')
+    if "message" in data:
+        user_input = data.get("message")
+    else:
+        import json
+        user_input = json.dumps(data)
 
-    if not user_input:
+    if not user_input or user_input == "{}" or not str(user_input).strip():
         return jsonify({"error": "No input provided"}), 400
 
     # Mock response if API details are missing/default
@@ -69,10 +72,8 @@ def process():
             "x-api-key": LANGFLOW_API_KEY,
             "Content-Type": "application/json"
         }
-        
-        # Note: The actual endpoint structure might vary based on Langflow version
-        # This is a common pattern: /api/v1/run/{flow_id}
-        api_url = f"{LANGFLOW_API_URL}/api/v1/run/{LANGFLOW_FLOW_ID}?stream=false"
+        # Construct the API URL
+        api_url = LANGFLOW_URL
         
         response = requests.post(api_url, json=payload, headers=headers)
         response.raise_for_status()
