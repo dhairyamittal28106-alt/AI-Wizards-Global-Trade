@@ -1,14 +1,17 @@
 from flask import Flask, render_template, request, jsonify
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()  # Load variables from .env file
 
 app = Flask(__name__)
 
 # --- Configuration ---
-# TODO: Replace with actual Langflow API details
-LANGFLOW_API_URL = os.environ.get("LANGFLOW_API_URL", "http://127.0.0.1:7860")
-LANGFLOW_FLOW_ID = os.environ.get("LANGFLOW_FLOW_ID", "f84e7ae5-2763-47cd-be4a-9905eb5b1a19")
-LANGFLOW_API_KEY = os.environ.get("LANGFLOW_API_KEY", "sk-thSYGf-Oq7CcsffJFtRzSbLlWwXf3H26NLoF7uF_P-s")
+# All secrets are loaded from .env via load_dotenv() above
+LANGFLOW_API_URL = os.environ.get("LANGFLOW_API_URL", "")
+LANGFLOW_FLOW_ID = os.environ.get("LANGFLOW_FLOW_ID", "")
+LANGFLOW_API_KEY = os.environ.get("LANGFLOW_API_KEY", "")
 
 @app.route('/')
 def home():

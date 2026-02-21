@@ -598,6 +598,17 @@
             <div class="message bot-message">
                 Hello! I'm your Global Trade AI. Ask me anything about HS codes, tariffs, or compliance.
             </div>
+            <div class="quick-prompts">
+                <button class="quick-prompt-btn"
+                    onclick="document.getElementById('chatInput').value='How to calculate landed cost?'; sendChatMessage();">Landed
+                    cost</button>
+                <button class="quick-prompt-btn"
+                    onclick="document.getElementById('chatInput').value='Explain Carbon Border Adjustment Mechanism (CBAM)'; sendChatMessage();">What
+                    is CBAM?</button>
+                <button class="quick-prompt-btn"
+                    onclick="document.getElementById('chatInput').value='Identify HS Code for Apple iPhone'; sendChatMessage();">HS
+                    Code for iPhone</button>
+            </div>
         </div>
         <div class="chat-input-area">
             <input type="text" id="chatInput" placeholder="Type a message..." onkeypress="handleChatEnter(event)">
@@ -620,6 +631,20 @@
     <div id="panelMessages" class="panel-messages">
         <div class="message bot-message">
             👋 Hi! I'm your Global Trade AI. Ask me about HS codes, tariffs, compliance requirements, or trade routes.
+        </div>
+        <div class="quick-prompts">
+            <button class="quick-prompt-btn"
+                onclick="document.getElementById('panelInput').value='How to calculate landed cost?'; sendPanelMessage();">Landed
+                Cost</button>
+            <button class="quick-prompt-btn"
+                onclick="document.getElementById('panelInput').value='Explain Carbon Border Adjustment Mechanism (CBAM)'; sendPanelMessage();">What
+                is CBAM?</button>
+            <button class="quick-prompt-btn"
+                onclick="document.getElementById('panelInput').value='Identify HS Code for Apple iPhone'; sendPanelMessage();">HS
+                Code for iPhone</button>
+            <button class="quick-prompt-btn"
+                onclick="document.getElementById('panelInput').value='Are there tariffs on electronics from China?'; sendPanelMessage();">Tariffs
+                on China</button>
         </div>
     </div>
     <div class="panel-input-area">

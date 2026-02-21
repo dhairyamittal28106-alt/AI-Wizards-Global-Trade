@@ -577,6 +577,32 @@ header {
     background: #333;
 }
 
+/* Quick Prompts for Chat */
+.quick-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.quick-prompt-btn {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(15, 23, 42, 0.2);
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    color: var(--accent-black);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+
+.quick-prompt-btn:hover {
+    background: var(--accent-black);
+    color: white;
+    transform: translateY(-1px);
+}
+
 /* Mobile menu button hidden on desktop */
 .mobile-menu-btn {
     display: none;
