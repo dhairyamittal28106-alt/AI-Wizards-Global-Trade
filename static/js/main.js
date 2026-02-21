@@ -1,4 +1,4 @@
-// ── Navbar smart navigation ──────────────────────────────────────
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-links a').forEach(link => {
         link.addEventListener('click', e => {
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (map && map.style.display !== 'none') {
                     map.scrollIntoView({ behavior: 'smooth' });
                 } else {
-                    // Map is hidden — scroll to analysis form to prompt user
+                    
                     document.getElementById('analysis')?.scrollIntoView({ behavior: 'smooth' });
                 }
             }
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ── End navbar handler ───────────────────────────────────────────
+
 
 let isChatOpen = false;
 
@@ -72,15 +72,15 @@ function sendChatMessage() {
     const message = inputField.value.trim();
     if (!message) return;
 
-    // Append User Message
+    
     appendMessage(message, 'user-message');
     inputField.value = '';
 
-    // Show Loading in Chat
+    
     const loadingId = 'chat-loading-' + Date.now();
     appendLoader(loadingId);
 
-    // Call Backend
+    
     fetch('/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,8 +90,11 @@ function sendChatMessage() {
         .then(data => {
             removeLoader(loadingId);
 
-            // Assume chat responses come back in message2 or fallback to parseResponse
-            let rawText = data.message2 || data.message1 || parseResponse(data) || "No response.";
+            
+            let parsedJson = extractJsonFromLangflow(data);
+
+            
+            let rawText = parsedJson.message2 || parsedJson.message1;
             let resultText = typeof marked !== 'undefined' ? marked.parse(rawText) : rawText;
 
             appendMessage(resultText, 'bot-message');
@@ -132,13 +135,13 @@ function parseResponse(data) {
 
     let text = "I didn't understand that. (Check console for details)";
     try {
-        // 1. Standard Nested Langflow Structure
+        
         if (data.outputs && data.outputs[0].outputs && data.outputs[0].outputs[0].results) {
             const result = data.outputs[0].outputs[0].results;
             if (result.message && result.message.text) text = result.message.text.replace(/\n/g, '<br>');
             else if (result.message && result.message.data && result.message.data.text) text = result.message.data.text.replace(/\n/g, '<br>');
         }
-        // 2. Fallbacks
+        
         else if (data.result) text = data.result.replace(/\n/g, '<br>');
         else if (data.message) text = data.message.replace(/\n/g, '<br>');
     } catch (error) {
@@ -146,7 +149,7 @@ function parseResponse(data) {
         text = "Error parsing response.";
     }
 
-    // Base Duty Alert Check
+    
     const dutyMatch = text.match(/(?:base\s*duty|baseduty|basic\s*duty).*?(\d+(?:\.\d+)?)\s*%/i);
     if (dutyMatch) {
         const dutyValue = parseFloat(dutyMatch[1]);
@@ -158,9 +161,78 @@ function parseResponse(data) {
     return text;
 }
 
-// --- Main Hero Search Logic ---
+
+function extractJsonFromLangflow(data) {
+    let rawText = "";
+    try {
+        if (data.outputs && data.outputs[0].outputs && data.outputs[0].outputs[0].results) {
+            const result = data.outputs[0].outputs[0].results;
+            rawText = result.message?.text || result.message?.data?.text || "";
+        } else if (data.result) {
+            rawText = data.result;
+        } else if (data.message) {
+            rawText = data.message;
+        }
+    } catch (e) { }
+
+    if (!rawText) rawText = parseResponse(data); 
+
+    let parsedJson = null;
+    let cleanText = "";
+    try {
+        const startIndex = rawText.indexOf('{');
+        const endIndex = rawText.lastIndexOf('}');
+
+        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+            cleanText = rawText.substring(startIndex, endIndex + 1);
+            
+            cleanText = cleanText.replace(/<br>/gi, '\\n');
+
+            
+            parsedJson = JSON.parse(cleanText);
+        } else {
+            throw new Error("No JSON object bounds found");
+        }
+    } catch (e) {
+        console.warn("Strict JSON fetch failed (likely LLM unescaped newlines), attempting Regex fallback:", e);
+
+        
+        parsedJson = {
+            trigger: false,
+            message1: "",
+            message2: ""
+        };
+
+        if (cleanText) {
+            let m1Match = cleanText.match(/"message1"\s*:\s*"?([\s\S]*?)"?\s*(?:,|})/);
+            if (m1Match) parsedJson.message1 = m1Match[1].replace(/\\n/g, '\n').trim();
+
+            let m2Match = cleanText.match(/"message2"\s*:\s*"?([\s\S]*?)"?\s*(?:,|})/);
+            if (m2Match) parsedJson.message2 = m2Match[1].replace(/\\n/g, '\n').trim();
+
+            let triggerMatch = cleanText.match(/"trigger"\s*:\s*(true|false)/i);
+            if (triggerMatch) parsedJson.trigger = (triggerMatch[1].toLowerCase() === 'true');
+
+            
+            if (parsedJson.message1 || parsedJson.message2) {
+                return parsedJson;
+            }
+        }
+
+        
+        let fallbackText = rawText.replace(/^{.*"message[12]"\s*:\s*"?/g, '').replace(/".*}$/, '').replace(/["{}()\\\[\]]/g, '').trim();
+        parsedJson = {
+            trigger: false,
+            message1: "",
+            message2: fallbackText || parseResponse(data)
+        };
+    }
+    return parsedJson;
+}
+
+
 function processInput() {
-    // 1. Gather Structured Data
+    
     const hsCode = document.getElementById('hsCode').value;
     const actionType = document.getElementById('actionType').value;
     const quantity = parseInt(document.getElementById('quantity').value) || 0;
@@ -181,7 +253,7 @@ function processInput() {
         return;
     }
 
-    // 2. Construct Payload
+    
     const payload = {
         hsCode: hsCode,
         quantity: quantity,
@@ -192,18 +264,18 @@ function processInput() {
 
     console.log("Sending Payload:", payload);
 
-    // 2.1 Trigger Map Animation
+    
     drawRoute(originCountry, destCountry);
 
-    // 3. Show Loading in Main Result Area
+    
     const mainResults = document.getElementById('mainResults');
     const resultCard = document.getElementById('resultCard');
     mainResults.style.display = 'block';
 
-    // Reset contents
+    
     resultCard.innerHTML = '<div class="loader"></div><p style="text-align:center; margin-top:10px;">Analyzing Global Trade Data...</p>';
 
-    // 4. Call Backend
+    
     fetch('/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,56 +283,16 @@ function processInput() {
     })
         .then(response => response.json())
         .then(data => {
-            // Switch page to lake-blue aurora
+            
             document.body.classList.add('results-shown');
 
-            // 1. Extract the raw text without HTML modifications
-            let rawText = "";
-            try {
-                if (data.outputs && data.outputs[0].outputs && data.outputs[0].outputs[0].results) {
-                    const result = data.outputs[0].outputs[0].results;
-                    rawText = result.message?.text || result.message?.data?.text || "";
-                } else if (data.result) {
-                    rawText = data.result;
-                } else if (data.message) {
-                    rawText = data.message;
-                }
-            } catch (e) { }
+            
+            let parsedJson = extractJsonFromLangflow(data);
 
-            if (!rawText) rawText = parseResponse(data); // Fallback
-
-            // 2. Try to parse it as JSON safely
-            let parsedJson = null;
-            try {
-                // Find first '{' and last '}' to extract raw JSON block cleanly
-                const startIndex = rawText.indexOf('{');
-                const endIndex = rawText.lastIndexOf('}');
-
-                if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-                    let cleanText = rawText.substring(startIndex, endIndex + 1);
-
-                    // Langflow JSON might have escaped newlines or literal \n in string fields
-                    // We also want to replace <br> back to \n if it somehow snuck through
-                    cleanText = cleanText.replace(/<br>/gi, '\\n');
-
-                    parsedJson = JSON.parse(cleanText);
-                } else {
-                    throw new Error("No JSON object bounds found");
-                }
-            } catch (e) {
-                console.warn("Response was not strictly JSON, falling back to raw text:", e);
-                // Fallback struct if parsing fails
-                parsedJson = {
-                    trigger: false,
-                    message1: parseResponse(data), // use html modified text for safety if it's plain text
-                    message2: ""
-                };
-            }
-
-            // Handle the calculate track vs chat track based on the JSON
+            
             let resultHtml = '';
 
-            // SCENARIO A: Calculate Track (always show message1 if it exists)
+            
             if (parsedJson.message1 && parsedJson.message1.trim() !== "") {
                 resultHtml += `
                     <h3 style="margin-bottom: 15px; color: var(--accent-black);">Analysis Result</h3>
@@ -269,30 +301,30 @@ function processInput() {
 
                 resultCard.innerHTML = resultHtml;
 
-                // Set up visual fluff (currency panel & history)
+                
                 const title = `${hsCode || 'HS'} · ${originCountry || ''} → ${destCountry || ''}`;
                 const _usdTotal = unitPrice * quantity;
                 if (_usdTotal > 0) showCurrencyPanel(resultCard, _usdTotal, originCountry, destCountry);
 
-                // Add receipt bar (optional UI fluff)
+                
                 addReceiptBar(resultCard, parsedJson.message1, title);
 
             } else {
-                // Fallback if no message1 is provided
+                
                 resultCard.innerHTML = '<p>Query processed.</p>';
             }
 
-            // SCENARIO B: Trigger is TRUE -> Show message2 in the Chat Popup
+            
             if (parsedJson.trigger === true && parsedJson.message2) {
-                // Delay slightly to let the main UI render
+                
                 setTimeout(() => {
-                    // Open the Chatbot UI and render the markdown
+                    
                     if (!isChatOpen && typeof openChatPanel === 'function') openChatPanel();
                     if (typeof toggleChat === 'function' && !isChatOpen && typeof openChatPanel === 'undefined') toggleChat();
 
                     const mdHtml = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
 
-                    // Depending on which chat is active (panel vs inline)
+                    
                     if (document.getElementById('panelMessages')) {
                         appendPanelMessage(mdHtml, 'bot-message');
                     } else if (document.getElementById('chatMessages')) {
@@ -300,7 +332,7 @@ function processInput() {
                     }
                 }, 1000);
             } else if (!parsedJson.message1 && parsedJson.message2) {
-                // Standalone chat track fallback
+                
                 mapContainer.style.display = 'none';
                 resultCard.innerHTML = '<p>Query passed to AI Advisor...</p>';
                 setTimeout(() => { mainResults.style.display = 'none'; }, 1000);
@@ -324,8 +356,8 @@ function processInput() {
 }
 
 
-// --- Map Visualization Logic ---
-// Coordinates calibrated to the actual SVG path bounding boxes (viewBox 0 0 1010 660)
+
+
 const countryCoords = {
     "China": { x: 790, y: 360, code: 'cn' },
     "USA": { x: 225, y: 275, code: 'us' },
@@ -344,7 +376,7 @@ const countryCoords = {
     "Mexico": { x: 205, y: 375, code: 'mx' }
 };
 
-// Distinct colors for multiple cart routes
+
 const ROUTE_COLORS = ['#ff4757', '#1e90ff', '#2ed573', '#ffa502', '#a29bfe', '#fd79a8', '#ff6b81', '#eccc68'];
 
 function drawRoute(origin, destination, color, skipClear) {
@@ -352,7 +384,7 @@ function drawRoute(origin, destination, color, skipClear) {
     const mapContainer = document.getElementById('mapContainer');
 
     if (!skipClear) {
-        // Remove only route-specific elements — preserve #mapLandmasses
+        
         const toRemove = svg.querySelectorAll('.route-pin, .route-line, .route-plane');
         toRemove.forEach(el => el.remove());
         Array.from(svg.children).forEach(child => {
@@ -362,7 +394,7 @@ function drawRoute(origin, destination, color, skipClear) {
 
     const routeColor = color || '#ff4757';
 
-    // Normalize inputs for lookup
+    
     const originKey = Object.keys(countryCoords).find(k => k.toLowerCase() === origin.trim().toLowerCase());
     const destKey = Object.keys(countryCoords).find(k => k.toLowerCase() === destination.trim().toLowerCase());
 
@@ -379,7 +411,7 @@ function drawRoute(origin, destination, color, skipClear) {
     const start = countryCoords[originKey];
     const end = countryCoords[destKey];
 
-    // Helper to create Pin with Flag
+    
     function createPin(x, y, countryCode) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.setAttribute('class', 'route-pin');
@@ -416,25 +448,25 @@ function drawRoute(origin, destination, color, skipClear) {
     svg.appendChild(createPin(start.x, start.y, start.code));
     svg.appendChild(createPin(end.x, end.y, end.code));
 
-    // Arc curve — vary the curve height slightly per color index so overlapping routes are visible
+    
     const colorIdx = ROUTE_COLORS.indexOf(routeColor);
     const curveLift = 50 + colorIdx * 18;
     const midX = (start.x + end.x) / 2;
     const midY = (start.y + end.y) / 2 - curveLift;
 
-    // Route dashed path
+    
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const d = `M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`;
     path.setAttribute('d', d);
     path.setAttribute('class', 'route-line route-plane');
-    path.setAttribute('stroke', routeColor);          // override CSS colour per route
+    path.setAttribute('stroke', routeColor);          
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke-width', '2.5');
     path.setAttribute('stroke-dasharray', '10,5');
     path.setAttribute('filter', `drop-shadow(0 0 3px ${routeColor}88)`);
     svg.appendChild(path);
 
-    // Animated plane
+    
     const iconGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     iconGroup.setAttribute('class', 'route-plane');
 
@@ -444,7 +476,7 @@ function drawRoute(origin, destination, color, skipClear) {
     plane.setAttribute('transform', 'translate(-12, -12) rotate(90 12 12)');
     iconGroup.appendChild(plane);
 
-    // Stagger start so planes don't all begin at the same position
+    
     const staggerDelay = (colorIdx * 0.8) % 3;
     const animateMotion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
     animateMotion.setAttribute('dur', `${2.5 + colorIdx * 0.3}s`);
@@ -457,12 +489,12 @@ function drawRoute(origin, destination, color, skipClear) {
     svg.appendChild(iconGroup);
 }
 
-// Draw all cart routes simultaneously in different colours
+
 function drawAllCartRoutes(items) {
     const svg = document.getElementById('routeSvg');
     const mapContainer = document.getElementById('mapContainer');
 
-    // Clear all existing route elements first
+    
     const toRemove = svg.querySelectorAll('.route-pin, .route-line, .route-plane');
     toRemove.forEach(el => el.remove());
     Array.from(svg.children).forEach(child => {
@@ -475,7 +507,7 @@ function drawAllCartRoutes(items) {
         const originKey = Object.keys(countryCoords).find(k => k.toLowerCase() === item.origin.trim().toLowerCase());
         const destKey = Object.keys(countryCoords).find(k => k.toLowerCase() === item.dest.trim().toLowerCase());
         if (originKey && destKey) {
-            drawRoute(item.origin, item.dest, color, true /* skipClear — we already cleared */);
+            drawRoute(item.origin, item.dest, color, true );
             anyDrawn = true;
         }
     });
@@ -483,11 +515,11 @@ function drawAllCartRoutes(items) {
     mapContainer.style.display = anyDrawn ? 'block' : 'none';
 }
 
-// --- Custom Combobox Logic ---
+
 function showOptions(input) {
     const list = input.nextElementSibling;
     if (list && list.classList.contains('custom-options')) {
-        // Reset all options to visible when showing
+        
         const options = list.querySelectorAll('li');
         options.forEach(opt => opt.style.display = 'block');
 
@@ -496,7 +528,7 @@ function showOptions(input) {
 }
 
 function hideOptions(input) {
-    // Delay hiding to handle clicks that aren't caught by mousedown (fallback)
+    
     setTimeout(() => {
         const list = input.nextElementSibling;
         if (list && list.classList.contains('custom-options')) {
@@ -520,21 +552,21 @@ function filterOptions(input) {
     });
 }
 
-// Global Event Delegation for Dropdown Selection
+
 document.addEventListener('DOMContentLoaded', () => {
     const dropdowns = document.querySelectorAll('.custom-options');
 
     dropdowns.forEach(list => {
         list.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'LI') {
-                e.preventDefault(); // Prevent input blur
+                e.preventDefault(); 
 
                 const input = list.previousElementSibling;
                 input.value = e.target.textContent;
 
                 list.classList.add('hidden');
 
-                // If actionType was changed, update the price field state
+                
                 if (input.id === 'actionType') {
                     updatePriceField(input.value);
                 }
@@ -543,23 +575,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Fallback for inline onclick handlers
+
 function selectOption(inputId, value) {
     const input = document.getElementById(inputId);
     input.value = value;
     const list = input.nextElementSibling;
     if (list) list.classList.add('hidden');
-    // Drive price field state when action type is picked
+    
     if (inputId === 'actionType') updatePriceField(value);
 }
 
-// Update price field placeholder based on Import vs Export (no longer disabled)
+
 function updatePriceField(action) {
     const priceInput = document.getElementById('price');
     const priceGroup = document.getElementById('priceGroup');
     if (!priceInput || !priceGroup) return;
 
-    // Price is ALWAYS editable — just change placeholder to hint
+    
     priceInput.disabled = false;
     priceGroup.classList.remove('field-disabled');
     if (action.trim().toLowerCase() === 'import') {
@@ -569,7 +601,7 @@ function updatePriceField(action) {
     }
 }
 
-// Toggle HS Code ↔ HTS Code (segmented tab control)
+
 function switchCodeType(type) {
     const input = document.getElementById('hsCode');
     document.querySelectorAll('.code-tab').forEach(tab => {
@@ -581,18 +613,18 @@ function switchCodeType(type) {
     input.focus();
 }
 
-// Close dropdowns if clicked outside
+
 document.addEventListener('click', function (e) {
     if (!e.target.closest('.relative-container')) {
         document.querySelectorAll('.custom-options').forEach(el => el.classList.add('hidden'));
     }
-    // Close user dropdown if clicked outside
+    
     if (!e.target.closest('.user-pill')) {
         document.querySelector('.user-pill')?.classList.remove('dropdown-open');
     }
 });
 
-// ── AI Chat Side Panel ────────────────────────────────────────────
+
 function openChatPanel() {
     document.getElementById('chatPanelOverlay').classList.add('open');
     document.getElementById('chatPanel').classList.add('open');
@@ -618,7 +650,7 @@ function sendPanelMessage() {
     appendPanelMessage(message, 'user-message');
     input.value = '';
 
-    // Typing indicator
+    
     const typingId = 'typing-' + Date.now();
     appendPanelTyping(typingId);
 
@@ -630,8 +662,11 @@ function sendPanelMessage() {
         .then(r => r.json())
         .then(data => {
             removePanelTyping(typingId);
-            let rawText = data.message2 || data.message1 || parseResponse(data) || "No response.";
+
+            let parsedJson = extractJsonFromLangflow(data);
+            let rawText = parsedJson.message2 || parsedJson.message1;
             let resultText = typeof marked !== 'undefined' ? marked.parse(rawText) : rawText;
+
             appendPanelMessage(resultText, 'bot-message');
         })
         .catch(() => {
@@ -663,7 +698,7 @@ function removePanelTyping(id) {
     document.getElementById(id)?.remove();
 }
 
-// ── Google Sign-in ────────────────────────────────────────────────
+
 function openSignInModal() {
     document.getElementById('gsiModalOverlay').classList.add('open');
 }
@@ -672,15 +707,15 @@ function closeSignInModal() {
     document.getElementById('gsiModalOverlay').classList.remove('open');
 }
 
-// Called by Google Identity Services after user consents
+
 function handleGoogleSignIn(response) {
     closeSignInModal();
-    // Decode the JWT payload (base64url)
+    
     const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
     const name = payload.name || payload.given_name || 'User';
     const picture = payload.picture || '';
 
-    // Update navbar: hide Sign In button, show user pill
+    
     document.getElementById('signInBtn').style.display = 'none';
     const pill = document.getElementById('userPill');
     pill.style.display = 'flex';
@@ -688,7 +723,7 @@ function handleGoogleSignIn(response) {
     document.getElementById('userAvatar').onerror = function () { this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=60`; };
     document.getElementById('userName').textContent = name;
 
-    // Store for sign-out
+    
     window._gtUser = { name, picture };
 }
 
@@ -706,7 +741,7 @@ function signOutUser() {
     window._gtUser = null;
 }
 
-// ── Multi-Product Trade Cart ──────────────────────────────────────
+
 let tradeCart = [];
 
 function addToCart() {
@@ -761,7 +796,7 @@ function renderCart() {
         </div>`
     ).join('');
 
-    // Summary: total shipment value across all products
+    
     const totalShipment = tradeCart
         .filter(i => i.totalValue)
         .reduce((sum, i) => sum + parseFloat(i.totalValue), 0);
@@ -792,7 +827,7 @@ function clearCartForm() {
 function processCart() {
     if (!tradeCart.length) { alert('Your cart is empty. Add at least one product.'); return; }
 
-    // Build multi-product prompt
+    
     const productLines = tradeCart.map((item, idx) => {
         const priceText = item.price ? ` at $${item.price} USD per unit (total $${parseFloat(item.totalValue).toLocaleString()})` : '';
         return `Product ${idx + 1}: ${item.actionType} ${item.quantity} units of ${item.codeType} ${item.hsCode}${priceText} from ${item.origin} to ${item.dest}`;
@@ -808,10 +843,10 @@ function processCart() {
 
     console.log('Multi-product prompt:', combinedPrompt);
 
-    // Draw ALL cart routes in different colors
+    
     drawAllCartRoutes(tradeCart);
 
-    // Show loading
+    
     const mainResults = document.getElementById('mainResults');
     const resultCard = document.getElementById('resultCard');
     mainResults.style.display = 'block';
@@ -827,7 +862,7 @@ function processCart() {
     })
         .then(r => r.json())
         .then(data => {
-            // Switch page to lake-blue aurora
+            
             document.body.classList.add('results-shown');
 
             const text = parseResponse(data);
@@ -838,7 +873,7 @@ function processCart() {
             </div>
             <div style="font-size:1rem;line-height:1.7;">${text}</div>`;
 
-            // Save to history
+            
             const label = tradeCart.map(i => `${i.codeType} ${i.hsCode}`).join(', ');
             saveToHistory({
                 title: label,
@@ -849,8 +884,8 @@ function processCart() {
             });
             addReceiptBar(resultCard, text, label);
 
-            // Currency panels — one per cart item that has a price
-            const _cartSnapshot = [...tradeCart]; // capture before any async changes
+            
+            const _cartSnapshot = [...tradeCart]; 
             _cartSnapshot.forEach(item => {
                 if (item.totalValue && parseFloat(item.totalValue) > 0) {
                     showCurrencyPanel(resultCard, parseFloat(item.totalValue), item.origin, item.dest);
@@ -863,7 +898,7 @@ function processCart() {
 }
 
 
-// ── History System ────────────────────────────────────────────────
+
 const HISTORY_KEY = () => {
     const user = window._gtUser;
     return user ? `gti_history_${user.email || user.name}` : null;
@@ -871,10 +906,10 @@ const HISTORY_KEY = () => {
 
 function saveToHistory(entry) {
     const key = HISTORY_KEY();
-    if (!key) return; // only save for signed-in users
+    if (!key) return; 
     const history = getHistory();
     history.unshift({ ...entry, id: Date.now(), ts: new Date().toISOString() });
-    if (history.length > 50) history.pop(); // cap at 50 entries
+    if (history.length > 50) history.pop(); 
     localStorage.setItem(key, JSON.stringify(history));
 }
 
@@ -949,7 +984,7 @@ function closeHistoryDetail() {
     document.getElementById('historyDetailOverlay').classList.remove('open');
 }
 
-// ── Receipt Download ───────────────────────────────────────────────
+
 function addReceiptBar(resultCard, resultHtml, title) {
     const isSignedIn = !!window._gtUser;
     const dlClass = isSignedIn ? 'btn-download' : 'btn-download disabled';
@@ -970,11 +1005,11 @@ function downloadFromResult(format, title) {
 
 function downloadReceipt(format, title) {
     if (!window._gtUser) { showToast('🔒 Sign in with Google required to download receipts.'); return; }
-    // Prefer open detail modal content, fallback to main result card
+    
     const source = document.getElementById('receiptContent') || document.getElementById('resultCard');
     if (!source) return;
 
-    // Build a clean print node
+    
     const node = document.createElement('div');
     node.style.cssText = 'font-family:Manrope,sans-serif;padding:32px;background:white;color:#111;width:720px;line-height:1.7;font-size:14px;';
     node.innerHTML = `
@@ -997,13 +1032,13 @@ function downloadReceipt(format, title) {
     html2canvas(node, { scale: 2, backgroundColor: '#fff', logging: false }).then(canvas => {
         document.body.removeChild(node);
         if (format === 'jpeg') {
-            // Download as JPEG
+            
             const link = document.createElement('a');
             link.download = `${title.replace(/[^a-z0-9]/gi, '_')}_receipt.jpg`;
             link.href = canvas.toDataURL('image/jpeg', 0.92);
             link.click();
         } else {
-            // Download as PDF
+            
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
             const imgData = canvas.toDataURL('image/png');
@@ -1016,7 +1051,7 @@ function downloadReceipt(format, title) {
     }).catch(() => showToast('⚠️ Download failed. Please try again.'));
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+
 let _toastTimer = null;
 function showToast(msg) {
     const t = document.getElementById('gtiToast');
@@ -1041,9 +1076,9 @@ function timeAgo(iso) {
 }
 
 
-// ── Multi-Currency Display ─────────────────────────────────────────
+
 const COUNTRY_CURRENCY = {
-    // Full names
+    
     'Afghanistan': 'AFN', 'Albania': 'ALL', 'Algeria': 'DZD', 'Argentina': 'ARS',
     'Armenia': 'AMD', 'Australia': 'AUD', 'Austria': 'EUR', 'Azerbaijan': 'AZN',
     'Bahrain': 'BHD', 'Bangladesh': 'BDT', 'Belarus': 'BYN', 'Belgium': 'EUR',
@@ -1073,14 +1108,14 @@ const COUNTRY_CURRENCY = {
     'United Kingdom': 'GBP', 'United States': 'USD', 'Uruguay': 'UYU',
     'Uzbekistan': 'UZS', 'Venezuela': 'VES', 'Vietnam': 'VND',
     'Yemen': 'YER', 'Zimbabwe': 'ZWL',
-    // Common short aliases
+    
     'UK': 'GBP', 'USA': 'USD', 'US': 'USD', 'UAE': 'AED',
     'S. Korea': 'KRW', 'Korea': 'KRW', 'N. Korea': 'KPW',
     'Russia': 'RUB', 'Czechia': 'CZK', 'Ivory Coast': 'XOF',
     'DR Congo': 'CDF', 'Tanzania': 'TZS', 'Laos': 'LAK',
 };
 
-// Currency → 2-letter ISO country code for flagcdn images
+
 const CURRENCY_COUNTRY_CODE = {
     'INR': 'in', 'CNY': 'cn', 'USD': 'us', 'EUR': 'eu', 'GBP': 'gb',
     'JPY': 'jp', 'AUD': 'au', 'CAD': 'ca', 'CHF': 'ch', 'SGD': 'sg',
@@ -1125,7 +1160,7 @@ function currencyFlagImg(curr) {
 async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
     if (!usdTotal || usdTotal <= 0) return;
 
-    // Case-insensitive lookup helper
+    
     function lookupCurrency(country) {
         if (!country) return null;
         const direct = COUNTRY_CURRENCY[country];
@@ -1138,10 +1173,10 @@ async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
     const originCurr = lookupCurrency(origin);
     const destCurr = lookupCurrency(dest);
 
-    // Collect unique non-USD codes to fetch
+    
     const toFetch = [...new Set([originCurr, destCurr].filter(c => c && c !== 'USD'))];
 
-    // Build panel (USD pill pre-filled; origin/dest get shimmer)
+    
     const panel = document.createElement('div');
     panel.className = 'currency-panel';
     panel.innerHTML = `
@@ -1152,7 +1187,7 @@ async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
     targetEl.appendChild(panel);
 
     if (!toFetch.length) {
-        // Both countries already use USD
+        
         panel.querySelectorAll('.currency-loading').forEach(el => el.outerHTML = fmt(usdTotal, 'USD'));
         return;
     }
@@ -1162,7 +1197,7 @@ async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
         const json = await (await fetch(url)).json();
         const rates = json.rates || {};
 
-        // Only update .origin and .dest — never touch the pre-filled .usd pill
+        
         const originEl = panel.querySelector('.currency-pill.origin .currency-pill-amount');
         const destEl = panel.querySelector('.currency-pill.dest   .currency-pill-amount');
 

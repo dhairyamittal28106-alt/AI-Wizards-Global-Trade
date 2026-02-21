@@ -3,12 +3,12 @@ import os
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()  # Load variables from .env file
+load_dotenv()  
 
 app = Flask(__name__)
 
-# --- Configuration ---
-# All secrets are loaded from .env via load_dotenv() above
+
+
 LANGFLOW_URL = os.environ.get("LANGFLOW_URL", "")
 LANGFLOW_API_KEY = os.environ.get("LANGFLOW_API_KEY", "")
 
@@ -33,11 +33,11 @@ def process():
     if not user_input or user_input == "{}" or not str(user_input).strip():
         return jsonify({"error": "No input provided"}), 400
 
-    # Mock response if API details are missing/default
-    # Note: We keep the check for the Default ID if the user hasn't set an env var, 
-    # but we updated the default above. So we check if the KEY is still the placeholder.
+    
+    
+    
     if LANGFLOW_API_KEY == "YOUR_API_KEY":
-        # Simulate a delay and return a mock response
+        
         import time
         time.sleep(1) 
         return jsonify({
@@ -57,22 +57,22 @@ def process():
             "status": "success"
         })
 
-    # Actual Langflow Integration
+    
     try:
-        # Construct the payload compatible with Langflow API
+        
         payload = {
             "input_value": user_input,
             "output_type": "chat",
             "input_type": "chat",
             "tweaks": {
-                # Add any specific tweaks here if needed
+                
             }
         }
         headers = {
             "x-api-key": LANGFLOW_API_KEY,
             "Content-Type": "application/json"
         }
-        # Construct the API URL
+        
         api_url = LANGFLOW_URL
         
         response = requests.post(api_url, json=payload, headers=headers)

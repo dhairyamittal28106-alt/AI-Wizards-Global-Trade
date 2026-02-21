@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Floating Navbar -->
+
 <header>
     <nav class="navbar">
         <a href="#" class="logo">GlobalTrade</a>
@@ -15,11 +15,11 @@
             </a>
         </div>
         <div class="nav-buttons">
-            <!-- Google Sign-in button (shown when logged out) -->
+            
             <button id="signInBtn" class="btn-pill btn-glass" onclick="openSignInModal()">
                 <i class="fab fa-google" style="margin-right:6px;"></i>Sign In
             </button>
-            <!-- User avatar pill (shown after sign-in) -->
+            
             <div id="userPill" class="user-pill" onclick="toggleUserDropdown()">
                 <img id="userAvatar" src="" alt="avatar">
                 <span id="userName" class="user-pill-name">User</span>
@@ -44,7 +44,7 @@
 </header>
 
 <section id="analysis" class="hero">
-    <!-- Decorative Ornament -->
+    
     <div class="ornament"></div>
 
     <div class="hero-tag">The Next Era of Sovereign Intelligence</div>
@@ -59,13 +59,13 @@
     <p style="font-size: 1.3rem; font-weight: 300; color: var(--text-secondary);">Building the infrastructure for the
         world's most resilient markets.</p>
 
-    <!-- Search Widget Container -->
+    
     <div id="trade-form" class="search-widget"
         style="flex-direction: column; gap: 15px; padding: 25px; width: 100%; max-width: 800px;">
         <form id="inputForm" onsubmit="event.preventDefault(); processInput();"
             style="width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
 
-            <!-- HS / HTS Code -->
+            
             <div id="hs-lookup" style="display:flex; flex-direction:column; gap:7px;">
                 <div class="code-type-tabs">
                     <button type="button" class="code-tab active" onclick="switchCodeType('HS')">HS Code</button>
@@ -77,7 +77,7 @@
                 </div>
             </div>
 
-            <!-- Action (Import/Export) -->
+            
             <div class="input-group-styled relative-container">
                 <i class="fas fa-exchange-alt input-icon"></i>
                 <input type="text" id="actionType" placeholder="Action (Import/Export)" autocomplete="off"
@@ -88,19 +88,19 @@
                 </ul>
             </div>
 
-            <!-- Quantity -->
+            
             <div class="input-group-styled">
                 <i class="fas fa-boxes input-icon"></i>
                 <input type="number" id="quantity" placeholder="Quantity" min="1" required>
             </div>
 
-            <!-- Product Price -->
+            
             <div class="input-group-styled" id="priceGroup">
                 <i class="fas fa-tag input-icon"></i>
                 <input type="number" id="price" placeholder="Price Per Unit (USD)" min="0" step="0.01">
             </div>
 
-            <!-- Origin Country -->
+            
             <div class="input-group-styled relative-container">
                 <i class="fas fa-plane-departure input-icon"></i>
                 <input type="text" id="originCountry" placeholder="Origin Country" autocomplete="off"
@@ -124,7 +124,7 @@
                 </ul>
             </div>
 
-            <!-- Destination Country -->
+            
             <div class="input-group-styled relative-container">
                 <i class="fas fa-plane-arrival input-icon"></i>
                 <input type="text" id="destCountry" placeholder="Destination Country" autocomplete="off"
@@ -148,7 +148,7 @@
                 </ul>
             </div>
 
-            <!-- Buttons row -->
+            
             <div style="grid-column: 1 / -1; display:flex; gap:10px; margin-top:10px; align-items:center;">
                 <button type="button" id="compliance" class="search-btn" style="flex:1;" onclick="addToCart()">
                     <i class="fas fa-cart-plus" style="margin-right:8px;"></i>Add to Cart
@@ -161,7 +161,7 @@
             </div>
         </form>
 
-        <!-- ── Trade Cart ─────────────────────────────────────────── -->
+        
         <div id="tradeCart" style="display:none; width:100%; margin-top:5px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <span style="font-weight:700; font-size:0.95rem; color:#333;">
@@ -175,10 +175,10 @@
                 </button>
             </div>
 
-            <!-- Cart items list -->
+            
             <div id="cartItems" style="display:flex;flex-direction:column;gap:8px;"></div>
 
-            <!-- Summary bar + Analyse button -->
+            
             <div id="cartSummary"
                 style="margin-top:12px;padding:14px 18px;background:rgba(0,0,0,0.04);border-radius:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                 <div style="font-size:0.88rem;color:#555;">
@@ -194,13 +194,13 @@
 
 
 
-<!-- Map Visualization (Hidden by default) -->
+
 <div id="routes" style="display:none;"></div>
 <div id="mapContainer" class="map-visualization" style="display: none;">
     <h3 style="text-align: center; margin-bottom: 10px; color: var(--accent-black);">Logistics Route Preview</h3>
     <div class="map-wrapper">
-        <!-- New Background Layer for colored map -->
-        <!-- World Map Landmasses Integrated -->
+        
+        
 
         <svg id="routeSvg" width="100%" height="100%" viewBox="0 0 1010 660" preserveAspectRatio="xMidYMid meet">
             <g id="mapLandmasses" class="land-layers"
@@ -563,32 +563,32 @@
                     <polygon points="0 0, 10 3.5, 0 7" fill="#ff0000" />
                 </marker>
             </defs>
-            <!-- Map Grid/Background (Abstract) -->
+            
             <rect width="800" height="400" fill="rgba(255,255,255,0.1)" />
-            <!-- Paths and dots will be injected here via JS -->
+            
         </svg>
     </div>
 </div>
 
-<!-- Main Results Area (Below Search) -->
+
 <div id="mainResults" class="results-container" style="display: none; margin-top: 30px;">
     <div id="resultCard" class="result-card">
-        <!-- Content injected via JS -->
+        
     </div>
 </div>
 </section>
 
-<!-- Old Results Section Removed/Merged -->
 
 
-<!-- Floating Chat Widget -->
+
+
 <div class="chat-widget-container">
-    <!-- Chat Button -->
+    
     <button id="chatBtn" class="chat-btn" onclick="toggleChat()">
         <i class="fas fa-comment-dots"></i>
     </button>
 
-    <!-- Chat Window -->
+    
     <div id="chatWindow" class="chat-window">
         <div class="chat-header">
             <span>AI Assistant</span>
@@ -617,7 +617,7 @@
     </div>
 </div>
 
-<!-- ── AI Chat Side Panel ─────────────────────────────────────── -->
+
 <div id="chatPanelOverlay" class="chat-panel-overlay" onclick="closeChatPanel()"></div>
 <div id="chatPanel" class="chat-panel">
     <div class="chat-panel-header">
@@ -654,7 +654,7 @@
     </div>
 </div>
 
-<!-- ── Google Sign-in Modal ───────────────────────────────────── -->
+
 <div id="gsiModalOverlay" class="gsi-modal-overlay" onclick="if(event.target===this)closeSignInModal()">
     <div class="gsi-modal">
         <div class="gsi-modal-inner">
@@ -663,7 +663,7 @@
             <h2>Welcome to GlobalTrade AI</h2>
             <p>Sign in to save your trade analyses,<br>access premium insights &amp; personalised reports.</p>
 
-            <!-- Google Identity Services button renders here -->
+            
             <div id="gsiButtonContainer" style="display:flex; justify-content:center; margin-bottom:16px;"></div>
 
             <p style="font-size:0.78rem; color:#bbb; margin-bottom:0;">
@@ -673,7 +673,7 @@
     </div>
 </div>
 
-<!-- ── History Side Panel ────────────────────────────────────── -->
+
 <div id="historyPanelOverlay" class="chat-panel-overlay" onclick="closeHistoryPanel()"></div>
 <div id="historyPanel" class="history-panel">
     <div class="history-panel-header">
@@ -687,7 +687,7 @@
     <div id="historyList" class="history-list"></div>
 </div>
 
-<!-- ── History Detail Modal ───────────────────────────────────── -->
+
 <div id="historyDetailOverlay" class="history-detail-overlay" onclick="if(event.target===this)closeHistoryDetail()">
     <div class="history-detail-modal">
         <div class="history-detail-modal-inner">
@@ -697,15 +697,15 @@
     </div>
 </div>
 
-<!-- Toast -->
+
 <div id="gtiToast" class="gti-toast"></div>
 
-<!-- PDF / JPEG download libraries -->
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<!-- Google Identity Services -->
-<!-- ⚠️  Replace YOUR_GOOGLE_CLIENT_ID with your actual Client ID from https://console.cloud.google.com/apis/credentials -->
+
+
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
     window.addEventListener('load', function () {

@@ -1,4 +1,4 @@
-/* Google Fonts - Manrope (Clean, Modern) */
+
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600;700&display=swap');
 
 :root {
@@ -12,7 +12,7 @@
     --radius-card: 16px;
 }
 
-/* After analysis: yellow top → soft white fade */
+
 body.results-shown {
     background: linear-gradient(180deg,
             #FDE68A 0%,
@@ -43,7 +43,7 @@ body {
     overflow-x: hidden;
 }
 
-/* Bottom Aurora — yellow glow */
+
 body::after {
     content: '';
     position: fixed;
@@ -60,7 +60,7 @@ body::after {
 }
 
 
-/* Floating Pill Navbar */
+
 header {
     position: fixed;
     top: 20px;
@@ -162,7 +162,7 @@ header {
     background: rgba(255, 255, 255, 0.6);
 }
 
-/* Hero Section */
+
 .hero {
     flex: 1;
     display: flex;
@@ -174,7 +174,7 @@ header {
     position: relative;
 }
 
-/* Offset for fixed navbar when scrolling to trade form */
+
 #trade-form {
     scroll-margin-top: 90px;
 }
@@ -195,7 +195,7 @@ header {
 .hero h1 {
     font-size: 4rem;
     font-weight: 300;
-    /* Thin elegant font */
+    
     line-height: 1.1;
     margin-bottom: 20px;
     color: var(--accent-black);
@@ -223,7 +223,7 @@ header {
     line-height: 1.6;
 }
 
-/* Search Widget (Minimalist) */
+
 .search-widget {
     background: rgba(255, 255, 255, 0.4);
     backdrop-filter: blur(10px);
@@ -243,7 +243,7 @@ header {
     background: rgba(255, 255, 255, 0.8);
 }
 
-/* Structured Input styling */
+
 .input-group-styled {
     display: flex;
     align-items: center;
@@ -293,7 +293,7 @@ header {
     background: #333;
 }
 
-/* Grayed-out field when Import is selected */
+
 .field-disabled {
     opacity: 0.45;
     cursor: not-allowed;
@@ -306,7 +306,7 @@ header {
     color: #999;
 }
 
-/* HS / HTS segmented tab control */
+
 .code-type-tabs {
     display: flex;
     background: rgba(0, 0, 0, 0.06);
@@ -340,7 +340,7 @@ header {
 }
 
 
-/* Results Section */
+
 .results-container {
     max-width: 800px;
     margin: 40px auto;
@@ -354,7 +354,7 @@ header {
     z-index: 1;
 }
 
-/* Lake blue aurora glow behind the result card */
+
 .results-container::before {
     content: '';
     position: absolute;
@@ -405,7 +405,7 @@ header {
     }
 }
 
-/* Features (Minimalist Grid) */
+
 .features {
     display: flex;
     justify-content: center;
@@ -424,7 +424,7 @@ header {
     opacity: 1;
 }
 
-/* Decorative Ornaments */
+
 .ornament {
     position: absolute;
     top: 25%;
@@ -436,7 +436,7 @@ header {
     opacity: 0.4;
 }
 
-/* Floating Chat Widget */
+
 .chat-widget-container {
     position: fixed;
     bottom: 30px;
@@ -478,7 +478,7 @@ header {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.7);
     display: none;
-    /* Hidden by default */
+    
     flex-direction: column;
     overflow: hidden;
     animation: slideUp 0.3s ease-out;
@@ -577,7 +577,7 @@ header {
     background: #333;
 }
 
-/* Quick Prompts for Chat */
+
 .quick-prompts {
     display: flex;
     flex-wrap: wrap;
@@ -603,7 +603,7 @@ header {
     transform: translateY(-1px);
 }
 
-/* Mobile menu button hidden on desktop */
+
 .mobile-menu-btn {
     display: none;
     background: transparent;
@@ -667,7 +667,7 @@ header {
     .search-widget {
         flex-direction: column;
         padding: 15px !important;
-        /* Override inline styles */
+        
         border-radius: 20px;
     }
 
@@ -687,7 +687,7 @@ header {
     }
 }
 
-/* Custom Combobox Styling */
+
 .relative-container {
     position: relative;
 }
@@ -729,7 +729,7 @@ header {
     font-weight: 600;
 }
 
-/* Scrollbar for dropdown */
+
 .custom-options::-webkit-scrollbar {
     width: 6px;
 }
@@ -743,8 +743,8 @@ header {
     border-radius: 3px;
 }
 
-/* Map Visualization */
-/* Map Visualization */
+
+
 .map-visualization {
     width: 100%;
     max-width: 800px;
@@ -757,7 +757,7 @@ header {
     width: 100%;
     height: 400px;
     background: radial-gradient(circle at 50% 50%, #a2d9ff 0%, #0099ff 100%);
-    /* Ocean Blue */
+    
     border-radius: 20px;
     border: 2px solid #1a90ff;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 0 20px rgba(26, 144, 255, 0.3);
@@ -776,7 +776,7 @@ header {
 }
 
 
-/* Add a grid pattern to map background */
+
 .map-wrapper::before {
     content: '';
     position: absolute;
@@ -794,7 +794,7 @@ header {
 .route-line {
     fill: none;
     stroke: #ff4757;
-    /* Red color as requested */
+    
     stroke-width: 3;
     stroke-dasharray: 10, 5;
     animation: dash 30s linear infinite;
@@ -807,7 +807,7 @@ header {
     stroke-width: 2;
 }
 
-/* Moving Icon Animation handled via JS/SMIL or CSS path */
+
 .moving-icon {
     font-size: 20px;
     fill: var(--accent-black);
@@ -819,12 +819,12 @@ header {
     }
 }
 
-/* Static Flag (No Waving) */
+
 .waving-flag {
     display: block;
 }
 
-/* ── AI Chat Side Panel ───────────────────────────────────────── */
+
 .chat-panel-overlay {
     position: fixed;
     inset: 0;
@@ -982,7 +982,7 @@ header {
     transform: scale(1.05);
 }
 
-/* Typing dots animation */
+
 .typing-dots span {
     display: inline-block;
     width: 6px;
@@ -1014,7 +1014,7 @@ header {
     }
 }
 
-/* ── Google Sign-in ───────────────────────────────────────────── */
+
 .gsi-modal-overlay {
     position: fixed;
     inset: 0;
@@ -1082,7 +1082,7 @@ header {
     position: relative;
 }
 
-/* User avatar pill in navbar (post sign-in) */
+
 .user-pill {
     display: none;
     align-items: center;
@@ -1162,7 +1162,7 @@ header {
     color: #e53e3e !important;
 }
 
-/* nav-link AI Chat style */
+
 .nav-link-chat {
     color: var(--text-secondary) !important;
     display: flex;
@@ -1185,7 +1185,7 @@ header {
     }
 }
 
-/* ── History Side Panel ───────────────────────────────────────── */
+
 .history-panel {
     position: fixed;
     top: 0;
@@ -1341,7 +1341,7 @@ header {
     display: block;
 }
 
-/* History detail overlay */
+
 .history-detail-overlay {
     position: fixed;
     inset: 0;
@@ -1393,7 +1393,7 @@ header {
     position: relative;
 }
 
-/* ── Download Receipt Button ──────────────────────────────────── */
+
 .receipt-bar {
     display: flex;
     align-items: center;
@@ -1437,7 +1437,7 @@ header {
     box-shadow: none;
 }
 
-/* Toast notification */
+
 .gti-toast {
     position: fixed;
     bottom: 30px;
@@ -1465,7 +1465,7 @@ header {
     transform: translateX(-50%) translateY(0);
 }
 
-/* ── Currency Conversion Panel ───────────────────────────────── */
+
 .currency-panel {
     display: flex;
     flex-wrap: wrap;
