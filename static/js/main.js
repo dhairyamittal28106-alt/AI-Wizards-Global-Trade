@@ -126,23 +126,32 @@ function removeLoader(id) {
 function parseResponse(data) {
     console.log("Raw API Response:", data);
 
+    let text = "I didn't understand that. (Check console for details)";
     try {
         // 1. Standard Nested Langflow Structure
         if (data.outputs && data.outputs[0].outputs && data.outputs[0].outputs[0].results) {
             const result = data.outputs[0].outputs[0].results;
-            if (result.message && result.message.text) return result.message.text.replace(/\n/g, '<br>');
-            if (result.message && result.message.data && result.message.data.text) return result.message.data.text.replace(/\n/g, '<br>');
+            if (result.message && result.message.text) text = result.message.text.replace(/\n/g, '<br>');
+            else if (result.message && result.message.data && result.message.data.text) text = result.message.data.text.replace(/\n/g, '<br>');
         }
-
         // 2. Fallbacks
-        if (data.result) return data.result.replace(/\n/g, '<br>');
-        if (data.message) return data.message.replace(/\n/g, '<br>');
-
-        return "I didn't understand that. (Check console for details)";
+        else if (data.result) text = data.result.replace(/\n/g, '<br>');
+        else if (data.message) text = data.message.replace(/\n/g, '<br>');
     } catch (error) {
         console.error("Error parsing response:", error);
-        return "Error parsing response.";
+        text = "Error parsing response.";
     }
+
+    // Base Duty Alert Check
+    const dutyMatch = text.match(/(?:base\s*duty|baseduty|basic\s*duty).*?(\d+(?:\.\d+)?)\s*%/i);
+    if (dutyMatch) {
+        const dutyValue = parseFloat(dutyMatch[1]);
+        if (dutyValue > 20) {
+            text += `<div style="color: #d32f2f; font-weight: 600; margin-top: 15px; border: 1px solid #fc8181; padding: 12px; border-radius: 8px; background: rgba(229, 62, 62, 0.1); display: flex; align-items: center; gap: 8px;"><i class="fas fa-exclamation-triangle"></i> Alert: Base duty is high (${dutyValue}%), be careful!</div>`;
+        }
+    }
+
+    return text;
 }
 
 // --- Main Hero Search Logic ---
