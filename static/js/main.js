@@ -94,8 +94,11 @@ function sendChatMessage() {
             let parsedJson = extractJsonFromLangflow(data);
 
 
-            let rawText = parsedJson.message2 || parsedJson.message1;
-            let resultText = typeof marked !== 'undefined' ? marked.parse(rawText) : rawText;
+            let rawText = parsedJson.message2 || parsedJson.message1 || '';
+            // Apply markdown rendering now that marked.js is loaded
+            let resultText = (typeof marked !== 'undefined' && rawText)
+                ? marked.parse(rawText)
+                : rawText;
 
             appendMessage(resultText, 'bot-message');
         })
@@ -138,24 +141,15 @@ function parseResponse(data) {
 
         if (data.outputs && data.outputs[0].outputs && data.outputs[0].outputs[0].results) {
             const result = data.outputs[0].outputs[0].results;
-            if (result.message && result.message.text) text = result.message.text.replace(/\n/g, '<br>');
-            else if (result.message && result.message.data && result.message.data.text) text = result.message.data.text.replace(/\n/g, '<br>');
+            if (result.message && result.message.text) text = result.message.text;
+            else if (result.message && result.message.data && result.message.data.text) text = result.message.data.text;
         }
 
-        else if (data.result) text = data.result.replace(/\n/g, '<br>');
-        else if (data.message) text = data.message.replace(/\n/g, '<br>');
+        else if (data.result) text = data.result;
+        else if (data.message) text = data.message;
     } catch (error) {
         console.error("Error parsing response:", error);
         text = "Error parsing response.";
-    }
-
-
-    const dutyMatch = text.match(/(?:base\s*duty|baseduty|basic\s*duty).*?(\d+(?:\.\d+)?)\s*%/i);
-    if (dutyMatch) {
-        const dutyValue = parseFloat(dutyMatch[1]);
-        if (dutyValue > 20) {
-            text += `<div style="color: #d32f2f; font-weight: 600; margin-top: 15px; border: 1px solid #fc8181; padding: 12px; border-radius: 8px; background: rgba(229, 62, 62, 0.1); display: flex; align-items: center; gap: 8px;"><i class="fas fa-exclamation-triangle"></i> Alert: Base duty is high (${dutyValue}%), be careful!</div>`;
-        }
     }
 
     return text;
@@ -177,8 +171,8 @@ function extractJsonFromLangflow(data) {
 
     if (!rawText) rawText = parseResponse(data);
 
-    // Strip markdown code fences e.g. ```json ... ``` that LLMs often wrap around JSON
-    rawText = rawText.replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    // Strip ALL markdown code fences (handles ```json, ```\n, multiple occurrences)
+    rawText = rawText.replace(/```[a-z]*\r?\n?/gi, '').replace(/```/g, '').trim();
 
     let parsedJson = null;
     let cleanText = "";
@@ -282,9 +276,12 @@ function processInput() {
 
 
             if (parsedJson.message1 && parsedJson.message1.trim() !== "") {
+                // Render message1 as markdown for the Combined Trade Analysis section
+                const mdHtml1 = typeof marked !== 'undefined' ? marked.parse(parsedJson.message1) : parsedJson.message1;
+
                 resultHtml += `
-                    <h3 style="margin-bottom: 15px; color: var(--accent-black);">Analysis Result</h3>
-                    <pre style="font-family: inherit; font-size: 1.1rem; line-height: 1.6; white-space: pre-wrap; background: transparent; border: none; padding: 0;">${parsedJson.message1}</pre>
+                    <h3 style="margin-bottom: 15px; color: var(--accent-black);">Combined Trade Analysis</h3>
+                    <div style="font-size:1rem;line-height:1.7;">${mdHtml1}</div>
                 `;
 
                 resultCard.innerHTML = resultHtml;
@@ -305,7 +302,7 @@ function processInput() {
                 if (_usdTotal > 0) showCurrencyPanel(resultCard, _usdTotal, originCountry, destCountry);
 
 
-                addReceiptBar(resultCard, parsedJson.message1, title);
+                addReceiptBar(resultCard, mdHtml1, title);
 
             } else {
 
@@ -314,37 +311,18 @@ function processInput() {
 
 
             if (parsedJson.trigger === true && parsedJson.message2) {
-
-                setTimeout(() => {
-
-                    if (!isChatOpen && typeof openChatPanel === 'function') openChatPanel();
-                    if (typeof toggleChat === 'function' && !isChatOpen && typeof openChatPanel === 'undefined') toggleChat();
-
-                    const mdHtml = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
-
-
-                    if (document.getElementById('panelMessages')) {
-                        appendPanelMessage(mdHtml, 'bot-message');
-                    } else if (document.getElementById('chatMessages')) {
-                        appendMessage(mdHtml, 'bot-message');
-                    }
-                }, 1000);
-            } else if (!parsedJson.message1 && parsedJson.message2) {
-
-                mapContainer.style.display = 'none';
+                // trigger=true: show clickable notification; opens chat on click
+                setTimeout(() => showTriggerNotif(parsedJson.message2), 800);
+            } else if (parsedJson.message2 && !parsedJson.message1) {
+                // Only message2 returned — treat as a chat-only response
+                const mapContainer = document.getElementById('mapContainer');
+                if (mapContainer) mapContainer.style.display = 'none';
                 resultCard.innerHTML = '<p>Query passed to AI Advisor...</p>';
                 setTimeout(() => { mainResults.style.display = 'none'; }, 1000);
 
-                if (!isChatOpen && typeof openChatPanel === 'function') openChatPanel();
-                if (typeof toggleChat === 'function' && !isChatOpen && typeof openChatPanel === 'undefined') toggleChat();
-
-                const mdHtml = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
-
-                if (document.getElementById('panelMessages')) {
-                    appendPanelMessage(mdHtml, 'bot-message');
-                } else if (document.getElementById('chatMessages')) {
-                    appendMessage(mdHtml, 'bot-message');
-                }
+                openChatPanel();
+                const mdHtml2 = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
+                appendPanelMessage(mdHtml2, 'bot-message');
             }
         })
         .catch((error) => {
@@ -864,6 +842,7 @@ function processCart() {
             document.body.classList.add('results-shown');
 
             const parsedJson = extractJsonFromLangflow(data);
+            // message1 goes to the result card (Combined Trade Analysis)
             const displayText = parsedJson.message1 || parsedJson.message2 || 'Analysis complete.';
             const mdText = typeof marked !== 'undefined' ? marked.parse(displayText) : displayText;
 
@@ -901,6 +880,15 @@ function processCart() {
                     showCurrencyPanel(resultCard, itemTotal, item.origin, item.dest);
                 }
             });
+
+            // message2 + trigger: show pop-up notification that opens chat on click
+            if (parsedJson.trigger === true && parsedJson.message2) {
+                setTimeout(() => showTriggerNotif(parsedJson.message2), 800);
+            } else if (parsedJson.message2 && !parsedJson.message1) {
+                openChatPanel();
+                const mdHtml2 = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
+                appendPanelMessage(mdHtml2, 'bot-message');
+            }
         })
         .catch(() => {
             resultCard.innerHTML = '<p style="color:red;text-align:center;">Error processing request. Please try again.</p>';
@@ -1069,6 +1057,44 @@ function showToast(msg) {
     t.classList.add('show');
     clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── Trigger Notification helpers ──────────────────────────────────────────
+let _triggerMessage2 = '';
+let _triggerDismissTimer = null;
+
+function showTriggerNotif(message2) {
+    _triggerMessage2 = message2;
+    const notif = document.getElementById('triggerNotif');
+    if (!notif) return;
+    notif.classList.add('show');
+    // Auto-dismiss after 12 seconds
+    clearTimeout(_triggerDismissTimer);
+    _triggerDismissTimer = setTimeout(hideTriggerNotif, 12000);
+}
+
+function hideTriggerNotif() {
+    const notif = document.getElementById('triggerNotif');
+    if (notif) notif.classList.remove('show');
+    clearTimeout(_triggerDismissTimer);
+}
+
+function triggerNotifOpen() {
+    hideTriggerNotif();
+    // Open the bottom-right AI Assistant widget (message icon)
+    if (!isChatOpen) toggleChat();
+    if (_triggerMessage2) {
+        const mdHtml2 = typeof marked !== 'undefined' ? marked.parse(_triggerMessage2) : _triggerMessage2;
+        // Slight delay so chat window animation finishes first
+        setTimeout(() => {
+            const msg = document.createElement('div');
+            msg.className = 'message bot-message';
+            msg.innerHTML = mdHtml2;
+            document.getElementById('chatMessages').appendChild(msg);
+            msg.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 350);
+        _triggerMessage2 = '';
+    }
 }
 
 function escHtml(str) {
