@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (map && map.style.display !== 'none') {
                     map.scrollIntoView({ behavior: 'smooth' });
                 } else {
-                    
+
                     document.getElementById('analysis')?.scrollIntoView({ behavior: 'smooth' });
                 }
             }
@@ -72,15 +72,15 @@ function sendChatMessage() {
     const message = inputField.value.trim();
     if (!message) return;
 
-    
+
     appendMessage(message, 'user-message');
     inputField.value = '';
 
-    
+
     const loadingId = 'chat-loading-' + Date.now();
     appendLoader(loadingId);
 
-    
+
     fetch('/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,10 +90,10 @@ function sendChatMessage() {
         .then(data => {
             removeLoader(loadingId);
 
-            
+
             let parsedJson = extractJsonFromLangflow(data);
 
-            
+
             let rawText = parsedJson.message2 || parsedJson.message1;
             let resultText = typeof marked !== 'undefined' ? marked.parse(rawText) : rawText;
 
@@ -135,13 +135,13 @@ function parseResponse(data) {
 
     let text = "I didn't understand that. (Check console for details)";
     try {
-        
+
         if (data.outputs && data.outputs[0].outputs && data.outputs[0].outputs[0].results) {
             const result = data.outputs[0].outputs[0].results;
             if (result.message && result.message.text) text = result.message.text.replace(/\n/g, '<br>');
             else if (result.message && result.message.data && result.message.data.text) text = result.message.data.text.replace(/\n/g, '<br>');
         }
-        
+
         else if (data.result) text = data.result.replace(/\n/g, '<br>');
         else if (data.message) text = data.message.replace(/\n/g, '<br>');
     } catch (error) {
@@ -149,7 +149,7 @@ function parseResponse(data) {
         text = "Error parsing response.";
     }
 
-    
+
     const dutyMatch = text.match(/(?:base\s*duty|baseduty|basic\s*duty).*?(\d+(?:\.\d+)?)\s*%/i);
     if (dutyMatch) {
         const dutyValue = parseFloat(dutyMatch[1]);
@@ -175,64 +175,52 @@ function extractJsonFromLangflow(data) {
         }
     } catch (e) { }
 
-    if (!rawText) rawText = parseResponse(data); 
+    if (!rawText) rawText = parseResponse(data);
+
+    // Strip markdown code fences e.g. ```json ... ``` that LLMs often wrap around JSON
+    rawText = rawText.replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 
     let parsedJson = null;
     let cleanText = "";
+
+    const startIndex = rawText.indexOf('{');
+    const endIndex = rawText.lastIndexOf('}');
+
+    // If there's no JSON object in the text at all, return plain text directly
+    if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+        return { trigger: false, message1: "", message2: rawText.trim() };
+    }
+
+    cleanText = rawText.substring(startIndex, endIndex + 1);
+    cleanText = cleanText.replace(/<br>/gi, '\\n');
+
     try {
-        const startIndex = rawText.indexOf('{');
-        const endIndex = rawText.lastIndexOf('}');
-
-        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-            cleanText = rawText.substring(startIndex, endIndex + 1);
-            
-            cleanText = cleanText.replace(/<br>/gi, '\\n');
-
-            
-            parsedJson = JSON.parse(cleanText);
-        } else {
-            throw new Error("No JSON object bounds found");
-        }
+        parsedJson = JSON.parse(cleanText);
     } catch (e) {
-        console.warn("Strict JSON fetch failed (likely LLM unescaped newlines), attempting Regex fallback:", e);
+        console.warn("Strict JSON parse failed, attempting regex fallback:", e);
 
-        
-        parsedJson = {
-            trigger: false,
-            message1: "",
-            message2: ""
-        };
+        parsedJson = { trigger: false, message1: "", message2: "" };
 
-        if (cleanText) {
-            let m1Match = cleanText.match(/"message1"\s*:\s*"?([\s\S]*?)"?\s*(?:,|})/);
-            if (m1Match) parsedJson.message1 = m1Match[1].replace(/\\n/g, '\n').trim();
+        const m1Match = cleanText.match(/"message1"\s*:\s*"([\s\S]*?)"\s*(?:,|})/);
+        if (m1Match) parsedJson.message1 = m1Match[1].replace(/\\n/g, '\n').trim();
 
-            let m2Match = cleanText.match(/"message2"\s*:\s*"?([\s\S]*?)"?\s*(?:,|})/);
-            if (m2Match) parsedJson.message2 = m2Match[1].replace(/\\n/g, '\n').trim();
+        const m2Match = cleanText.match(/"message2"\s*:\s*"([\s\S]*?)"\s*(?:,|})/);
+        if (m2Match) parsedJson.message2 = m2Match[1].replace(/\\n/g, '\n').trim();
 
-            let triggerMatch = cleanText.match(/"trigger"\s*:\s*(true|false)/i);
-            if (triggerMatch) parsedJson.trigger = (triggerMatch[1].toLowerCase() === 'true');
+        const triggerMatch = cleanText.match(/"trigger"\s*:\s*(true|false)/i);
+        if (triggerMatch) parsedJson.trigger = (triggerMatch[1].toLowerCase() === 'true');
 
-            
-            if (parsedJson.message1 || parsedJson.message2) {
-                return parsedJson;
-            }
+        // If regex found nothing useful, fall back to the raw text as plain content
+        if (!parsedJson.message1 && !parsedJson.message2) {
+            parsedJson.message2 = rawText.trim();
         }
-
-        
-        let fallbackText = rawText.replace(/^{.*"message[12]"\s*:\s*"?/g, '').replace(/".*}$/, '').replace(/["{}()\\\[\]]/g, '').trim();
-        parsedJson = {
-            trigger: false,
-            message1: "",
-            message2: fallbackText || parseResponse(data)
-        };
     }
     return parsedJson;
 }
 
 
 function processInput() {
-    
+
     const hsCode = document.getElementById('hsCode').value;
     const actionType = document.getElementById('actionType').value;
     const quantity = parseInt(document.getElementById('quantity').value) || 0;
@@ -253,7 +241,7 @@ function processInput() {
         return;
     }
 
-    
+
     const payload = {
         hsCode: hsCode,
         quantity: quantity,
@@ -264,18 +252,18 @@ function processInput() {
 
     console.log("Sending Payload:", payload);
 
-    
+
     drawRoute(originCountry, destCountry);
 
-    
+
     const mainResults = document.getElementById('mainResults');
     const resultCard = document.getElementById('resultCard');
     mainResults.style.display = 'block';
 
-    
+
     resultCard.innerHTML = '<div class="loader"></div><p style="text-align:center; margin-top:10px;">Analyzing Global Trade Data...</p>';
 
-    
+
     fetch('/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -283,16 +271,16 @@ function processInput() {
     })
         .then(response => response.json())
         .then(data => {
-            
+
             document.body.classList.add('results-shown');
 
-            
+
             let parsedJson = extractJsonFromLangflow(data);
 
-            
+
             let resultHtml = '';
 
-            
+
             if (parsedJson.message1 && parsedJson.message1.trim() !== "") {
                 resultHtml += `
                     <h3 style="margin-bottom: 15px; color: var(--accent-black);">Analysis Result</h3>
@@ -301,30 +289,37 @@ function processInput() {
 
                 resultCard.innerHTML = resultHtml;
 
-                
+
                 const title = `${hsCode || 'HS'} · ${originCountry || ''} → ${destCountry || ''}`;
-                const _usdTotal = unitPrice * quantity;
+                let _usdTotal = unitPrice * quantity;
+
+                const dutyMatch = parsedJson.message1 ? parsedJson.message1.match(/(?:base\s*duty|baseduty|basic\s*duty|duty applied).*?(\d+(?:\.\d+)?)\s*%/i) : null;
+                if (dutyMatch) {
+                    const dutyRate = parseFloat(dutyMatch[1]) / 100;
+                    _usdTotal += (_usdTotal * dutyRate);
+                }
+
                 if (_usdTotal > 0) showCurrencyPanel(resultCard, _usdTotal, originCountry, destCountry);
 
-                
+
                 addReceiptBar(resultCard, parsedJson.message1, title);
 
             } else {
-                
+
                 resultCard.innerHTML = '<p>Query processed.</p>';
             }
 
-            
+
             if (parsedJson.trigger === true && parsedJson.message2) {
-                
+
                 setTimeout(() => {
-                    
+
                     if (!isChatOpen && typeof openChatPanel === 'function') openChatPanel();
                     if (typeof toggleChat === 'function' && !isChatOpen && typeof openChatPanel === 'undefined') toggleChat();
 
                     const mdHtml = typeof marked !== 'undefined' ? marked.parse(parsedJson.message2) : parsedJson.message2;
 
-                    
+
                     if (document.getElementById('panelMessages')) {
                         appendPanelMessage(mdHtml, 'bot-message');
                     } else if (document.getElementById('chatMessages')) {
@@ -332,7 +327,7 @@ function processInput() {
                     }
                 }, 1000);
             } else if (!parsedJson.message1 && parsedJson.message2) {
-                
+
                 mapContainer.style.display = 'none';
                 resultCard.innerHTML = '<p>Query passed to AI Advisor...</p>';
                 setTimeout(() => { mainResults.style.display = 'none'; }, 1000);
@@ -384,7 +379,7 @@ function drawRoute(origin, destination, color, skipClear) {
     const mapContainer = document.getElementById('mapContainer');
 
     if (!skipClear) {
-        
+
         const toRemove = svg.querySelectorAll('.route-pin, .route-line, .route-plane');
         toRemove.forEach(el => el.remove());
         Array.from(svg.children).forEach(child => {
@@ -394,7 +389,7 @@ function drawRoute(origin, destination, color, skipClear) {
 
     const routeColor = color || '#ff4757';
 
-    
+
     const originKey = Object.keys(countryCoords).find(k => k.toLowerCase() === origin.trim().toLowerCase());
     const destKey = Object.keys(countryCoords).find(k => k.toLowerCase() === destination.trim().toLowerCase());
 
@@ -411,7 +406,7 @@ function drawRoute(origin, destination, color, skipClear) {
     const start = countryCoords[originKey];
     const end = countryCoords[destKey];
 
-    
+
     function createPin(x, y, countryCode) {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.setAttribute('class', 'route-pin');
@@ -448,25 +443,25 @@ function drawRoute(origin, destination, color, skipClear) {
     svg.appendChild(createPin(start.x, start.y, start.code));
     svg.appendChild(createPin(end.x, end.y, end.code));
 
-    
+
     const colorIdx = ROUTE_COLORS.indexOf(routeColor);
     const curveLift = 50 + colorIdx * 18;
     const midX = (start.x + end.x) / 2;
     const midY = (start.y + end.y) / 2 - curveLift;
 
-    
+
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const d = `M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`;
     path.setAttribute('d', d);
     path.setAttribute('class', 'route-line route-plane');
-    path.setAttribute('stroke', routeColor);          
+    path.setAttribute('stroke', routeColor);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke-width', '2.5');
     path.setAttribute('stroke-dasharray', '10,5');
     path.setAttribute('filter', `drop-shadow(0 0 3px ${routeColor}88)`);
     svg.appendChild(path);
 
-    
+
     const iconGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     iconGroup.setAttribute('class', 'route-plane');
 
@@ -476,7 +471,7 @@ function drawRoute(origin, destination, color, skipClear) {
     plane.setAttribute('transform', 'translate(-12, -12) rotate(90 12 12)');
     iconGroup.appendChild(plane);
 
-    
+
     const staggerDelay = (colorIdx * 0.8) % 3;
     const animateMotion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
     animateMotion.setAttribute('dur', `${2.5 + colorIdx * 0.3}s`);
@@ -494,7 +489,7 @@ function drawAllCartRoutes(items) {
     const svg = document.getElementById('routeSvg');
     const mapContainer = document.getElementById('mapContainer');
 
-    
+
     const toRemove = svg.querySelectorAll('.route-pin, .route-line, .route-plane');
     toRemove.forEach(el => el.remove());
     Array.from(svg.children).forEach(child => {
@@ -507,7 +502,7 @@ function drawAllCartRoutes(items) {
         const originKey = Object.keys(countryCoords).find(k => k.toLowerCase() === item.origin.trim().toLowerCase());
         const destKey = Object.keys(countryCoords).find(k => k.toLowerCase() === item.dest.trim().toLowerCase());
         if (originKey && destKey) {
-            drawRoute(item.origin, item.dest, color, true );
+            drawRoute(item.origin, item.dest, color, true);
             anyDrawn = true;
         }
     });
@@ -519,7 +514,7 @@ function drawAllCartRoutes(items) {
 function showOptions(input) {
     const list = input.nextElementSibling;
     if (list && list.classList.contains('custom-options')) {
-        
+
         const options = list.querySelectorAll('li');
         options.forEach(opt => opt.style.display = 'block');
 
@@ -528,7 +523,7 @@ function showOptions(input) {
 }
 
 function hideOptions(input) {
-    
+
     setTimeout(() => {
         const list = input.nextElementSibling;
         if (list && list.classList.contains('custom-options')) {
@@ -559,14 +554,14 @@ document.addEventListener('DOMContentLoaded', () => {
     dropdowns.forEach(list => {
         list.addEventListener('mousedown', (e) => {
             if (e.target.tagName === 'LI') {
-                e.preventDefault(); 
+                e.preventDefault();
 
                 const input = list.previousElementSibling;
                 input.value = e.target.textContent;
 
                 list.classList.add('hidden');
 
-                
+
                 if (input.id === 'actionType') {
                     updatePriceField(input.value);
                 }
@@ -581,7 +576,7 @@ function selectOption(inputId, value) {
     input.value = value;
     const list = input.nextElementSibling;
     if (list) list.classList.add('hidden');
-    
+
     if (inputId === 'actionType') updatePriceField(value);
 }
 
@@ -591,7 +586,7 @@ function updatePriceField(action) {
     const priceGroup = document.getElementById('priceGroup');
     if (!priceInput || !priceGroup) return;
 
-    
+
     priceInput.disabled = false;
     priceGroup.classList.remove('field-disabled');
     if (action.trim().toLowerCase() === 'import') {
@@ -618,7 +613,7 @@ document.addEventListener('click', function (e) {
     if (!e.target.closest('.relative-container')) {
         document.querySelectorAll('.custom-options').forEach(el => el.classList.add('hidden'));
     }
-    
+
     if (!e.target.closest('.user-pill')) {
         document.querySelector('.user-pill')?.classList.remove('dropdown-open');
     }
@@ -650,7 +645,7 @@ function sendPanelMessage() {
     appendPanelMessage(message, 'user-message');
     input.value = '';
 
-    
+
     const typingId = 'typing-' + Date.now();
     appendPanelTyping(typingId);
 
@@ -710,12 +705,12 @@ function closeSignInModal() {
 
 function handleGoogleSignIn(response) {
     closeSignInModal();
-    
+
     const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
     const name = payload.name || payload.given_name || 'User';
     const picture = payload.picture || '';
 
-    
+
     document.getElementById('signInBtn').style.display = 'none';
     const pill = document.getElementById('userPill');
     pill.style.display = 'flex';
@@ -723,7 +718,7 @@ function handleGoogleSignIn(response) {
     document.getElementById('userAvatar').onerror = function () { this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=60`; };
     document.getElementById('userName').textContent = name;
 
-    
+
     window._gtUser = { name, picture };
 }
 
@@ -796,7 +791,7 @@ function renderCart() {
         </div>`
     ).join('');
 
-    
+
     const totalShipment = tradeCart
         .filter(i => i.totalValue)
         .reduce((sum, i) => sum + parseFloat(i.totalValue), 0);
@@ -827,7 +822,7 @@ function clearCartForm() {
 function processCart() {
     if (!tradeCart.length) { alert('Your cart is empty. Add at least one product.'); return; }
 
-    
+
     const productLines = tradeCart.map((item, idx) => {
         const priceText = item.price ? ` at $${item.price} USD per unit (total $${parseFloat(item.totalValue).toLocaleString()})` : '';
         return `Product ${idx + 1}: ${item.actionType} ${item.quantity} units of ${item.codeType} ${item.hsCode}${priceText} from ${item.origin} to ${item.dest}`;
@@ -843,10 +838,10 @@ function processCart() {
 
     console.log('Multi-product prompt:', combinedPrompt);
 
-    
+
     drawAllCartRoutes(tradeCart);
 
-    
+
     const mainResults = document.getElementById('mainResults');
     const resultCard = document.getElementById('resultCard');
     mainResults.style.display = 'block';
@@ -862,33 +857,42 @@ function processCart() {
     })
         .then(r => r.json())
         .then(data => {
-            
+
             document.body.classList.add('results-shown');
 
-            const text = parseResponse(data);
+            const parsedJson = extractJsonFromLangflow(data);
+            const displayText = parsedJson.message1 || parsedJson.message2 || 'Analysis complete.';
+            const mdText = typeof marked !== 'undefined' ? marked.parse(displayText) : displayText;
+
             resultCard.innerHTML = `
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
                 <h3 style="color:var(--accent-black);margin:0;">Combined Trade Analysis</h3>
                 <span style="background:#000;color:#fff;border-radius:20px;padding:3px 10px;font-size:0.78rem;">${tradeCart.length} products</span>
             </div>
-            <div style="font-size:1rem;line-height:1.7;">${text}</div>`;
+            <div style="font-size:1rem;line-height:1.7;">${mdText}</div>`;
 
-            
+
             const label = tradeCart.map(i => `${i.codeType} ${i.hsCode}`).join(', ');
             saveToHistory({
                 title: label,
                 type: 'multi',
                 meta: `${tradeCart.length} products · ${tradeCart[0]?.origin} → ${tradeCart[0]?.dest}`,
-                resultHtml: text,
+                resultHtml: mdText,
                 prompt: combinedPrompt
             });
-            addReceiptBar(resultCard, text, label);
+            addReceiptBar(resultCard, mdText, label);
 
-            
-            const _cartSnapshot = [...tradeCart]; 
+
+            const _cartSnapshot = [...tradeCart];
             _cartSnapshot.forEach(item => {
                 if (item.totalValue && parseFloat(item.totalValue) > 0) {
-                    showCurrencyPanel(resultCard, parseFloat(item.totalValue), item.origin, item.dest);
+                    let itemTotal = parseFloat(item.totalValue);
+                    const dutyMatch = mdText ? mdText.match(/(?:base\s*duty|baseduty|basic\s*duty|duty applied).*?(\d+(?:\.\d+)?)\s*%/i) : null;
+                    if (dutyMatch) {
+                        const dutyRate = parseFloat(dutyMatch[1]) / 100;
+                        itemTotal += (itemTotal * dutyRate);
+                    }
+                    showCurrencyPanel(resultCard, itemTotal, item.origin, item.dest);
                 }
             });
         })
@@ -906,10 +910,10 @@ const HISTORY_KEY = () => {
 
 function saveToHistory(entry) {
     const key = HISTORY_KEY();
-    if (!key) return; 
+    if (!key) return;
     const history = getHistory();
     history.unshift({ ...entry, id: Date.now(), ts: new Date().toISOString() });
-    if (history.length > 50) history.pop(); 
+    if (history.length > 50) history.pop();
     localStorage.setItem(key, JSON.stringify(history));
 }
 
@@ -1005,11 +1009,11 @@ function downloadFromResult(format, title) {
 
 function downloadReceipt(format, title) {
     if (!window._gtUser) { showToast('🔒 Sign in with Google required to download receipts.'); return; }
-    
+
     const source = document.getElementById('receiptContent') || document.getElementById('resultCard');
     if (!source) return;
 
-    
+
     const node = document.createElement('div');
     node.style.cssText = 'font-family:Manrope,sans-serif;padding:32px;background:white;color:#111;width:720px;line-height:1.7;font-size:14px;';
     node.innerHTML = `
@@ -1032,13 +1036,13 @@ function downloadReceipt(format, title) {
     html2canvas(node, { scale: 2, backgroundColor: '#fff', logging: false }).then(canvas => {
         document.body.removeChild(node);
         if (format === 'jpeg') {
-            
+
             const link = document.createElement('a');
             link.download = `${title.replace(/[^a-z0-9]/gi, '_')}_receipt.jpg`;
             link.href = canvas.toDataURL('image/jpeg', 0.92);
             link.click();
         } else {
-            
+
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
             const imgData = canvas.toDataURL('image/png');
@@ -1078,7 +1082,7 @@ function timeAgo(iso) {
 
 
 const COUNTRY_CURRENCY = {
-    
+
     'Afghanistan': 'AFN', 'Albania': 'ALL', 'Algeria': 'DZD', 'Argentina': 'ARS',
     'Armenia': 'AMD', 'Australia': 'AUD', 'Austria': 'EUR', 'Azerbaijan': 'AZN',
     'Bahrain': 'BHD', 'Bangladesh': 'BDT', 'Belarus': 'BYN', 'Belgium': 'EUR',
@@ -1108,7 +1112,7 @@ const COUNTRY_CURRENCY = {
     'United Kingdom': 'GBP', 'United States': 'USD', 'Uruguay': 'UYU',
     'Uzbekistan': 'UZS', 'Venezuela': 'VES', 'Vietnam': 'VND',
     'Yemen': 'YER', 'Zimbabwe': 'ZWL',
-    
+
     'UK': 'GBP', 'USA': 'USD', 'US': 'USD', 'UAE': 'AED',
     'S. Korea': 'KRW', 'Korea': 'KRW', 'N. Korea': 'KPW',
     'Russia': 'RUB', 'Czechia': 'CZK', 'Ivory Coast': 'XOF',
@@ -1160,7 +1164,7 @@ function currencyFlagImg(curr) {
 async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
     if (!usdTotal || usdTotal <= 0) return;
 
-    
+
     function lookupCurrency(country) {
         if (!country) return null;
         const direct = COUNTRY_CURRENCY[country];
@@ -1173,10 +1177,10 @@ async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
     const originCurr = lookupCurrency(origin);
     const destCurr = lookupCurrency(dest);
 
-    
+
     const toFetch = [...new Set([originCurr, destCurr].filter(c => c && c !== 'USD'))];
 
-    
+
     const panel = document.createElement('div');
     panel.className = 'currency-panel';
     panel.innerHTML = `
@@ -1187,7 +1191,7 @@ async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
     targetEl.appendChild(panel);
 
     if (!toFetch.length) {
-        
+
         panel.querySelectorAll('.currency-loading').forEach(el => el.outerHTML = fmt(usdTotal, 'USD'));
         return;
     }
@@ -1197,7 +1201,7 @@ async function showCurrencyPanel(targetEl, usdTotal, origin, dest) {
         const json = await (await fetch(url)).json();
         const rates = json.rates || {};
 
-        
+
         const originEl = panel.querySelector('.currency-pill.origin .currency-pill-amount');
         const destEl = panel.querySelector('.currency-pill.dest   .currency-pill-amount');
 
