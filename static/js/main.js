@@ -890,7 +890,7 @@ function processCart() {
             _cartSnapshot.forEach(item => {
                 if (item.totalValue && parseFloat(item.totalValue) > 0) {
                     let itemTotal = parseFloat(item.totalValue);
-                    const dutyMatch = mdText ? mdText.match(/(?:base\s*duty|baseduty|basic\s*duty|duty applied).*?(\d+(?:\.\d+)?)\s*%/i) : null;
+                    const dutyMatch = displayText ? displayText.match(/(?:base\s*duty|baseduty|basic\s*duty|duty applied).*?(\d+(?:\.\d+)?)\s*%/i) : null;
                     if (dutyMatch) {
                         const dutyRate = parseFloat(dutyMatch[1]);
                         if (dutyRate >= 15) {
