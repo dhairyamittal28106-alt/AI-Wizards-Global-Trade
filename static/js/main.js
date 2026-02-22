@@ -295,8 +295,11 @@ function processInput() {
 
                 const dutyMatch = parsedJson.message1 ? parsedJson.message1.match(/(?:base\s*duty|baseduty|basic\s*duty|duty applied).*?(\d+(?:\.\d+)?)\s*%/i) : null;
                 if (dutyMatch) {
-                    const dutyRate = parseFloat(dutyMatch[1]) / 100;
-                    _usdTotal += (_usdTotal * dutyRate);
+                    const dutyRate = parseFloat(dutyMatch[1]);
+                    if (dutyRate >= 15) {
+                        showDutyWarning(dutyRate);
+                    }
+                    _usdTotal += (_usdTotal * (dutyRate / 100));
                 }
 
                 if (_usdTotal > 0) showCurrencyPanel(resultCard, _usdTotal, originCountry, destCountry);
@@ -889,8 +892,11 @@ function processCart() {
                     let itemTotal = parseFloat(item.totalValue);
                     const dutyMatch = mdText ? mdText.match(/(?:base\s*duty|baseduty|basic\s*duty|duty applied).*?(\d+(?:\.\d+)?)\s*%/i) : null;
                     if (dutyMatch) {
-                        const dutyRate = parseFloat(dutyMatch[1]) / 100;
-                        itemTotal += (itemTotal * dutyRate);
+                        const dutyRate = parseFloat(dutyMatch[1]);
+                        if (dutyRate >= 15) {
+                            showDutyWarning(dutyRate);
+                        }
+                        itemTotal += (itemTotal * (dutyRate / 100));
                     }
                     showCurrencyPanel(resultCard, itemTotal, item.origin, item.dest);
                 }
@@ -1247,4 +1253,48 @@ function fmt(amount, currency) {
     } catch {
         return `${currency} ${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
     }
+}
+
+
+function showDutyWarning(dutyRate) {
+    let warningEl = document.getElementById('dutyWarningPopup');
+    if (!warningEl) {
+        warningEl = document.createElement('div');
+        warningEl.id = 'dutyWarningPopup';
+        warningEl.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100%);
+            background: #ffebee;
+            color: #c62828;
+            border: 2px solid #ef5350;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+            z-index: 9999;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
+            opacity: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        `;
+        document.body.appendChild(warningEl);
+    }
+
+    warningEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="font-size: 1.4rem;"></i> Be careful, base duty is >= 15% (${dutyRate}%)`;
+
+    // Animate in
+    requestAnimationFrame(() => {
+        warningEl.style.transform = 'translateX(-50%) translateY(0)';
+        warningEl.style.opacity = '1';
+    });
+
+    // Remove after 4 seconds
+    setTimeout(() => {
+        warningEl.style.transform = 'translateX(-50%) translateY(-100%)';
+        warningEl.style.opacity = '0';
+    }, 4000);
 }
