@@ -95,7 +95,7 @@ function sendChatMessage() {
 
 
             let rawText = parsedJson.message2 || parsedJson.message1 || '';
-            // Apply markdown rendering now that marked.js is loaded
+            
             let resultText = (typeof marked !== 'undefined' && rawText)
                 ? marked.parse(rawText)
                 : rawText;
@@ -171,7 +171,7 @@ function extractJsonFromLangflow(data) {
 
     if (!rawText) rawText = parseResponse(data);
 
-    // Strip ALL markdown code fences (handles ```json, ```\n, multiple occurrences)
+    
     rawText = rawText.replace(/```[a-z]*\r?\n?/gi, '').replace(/```/g, '').trim();
 
     let parsedJson = null;
@@ -180,7 +180,7 @@ function extractJsonFromLangflow(data) {
     const startIndex = rawText.indexOf('{');
     const endIndex = rawText.lastIndexOf('}');
 
-    // If there's no JSON object in the text at all, return plain text directly
+    
     if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
         return { trigger: false, message1: "", message2: rawText.trim() };
     }
@@ -204,7 +204,7 @@ function extractJsonFromLangflow(data) {
         const triggerMatch = cleanText.match(/"trigger"\s*:\s*(true|false)/i);
         if (triggerMatch) parsedJson.trigger = (triggerMatch[1].toLowerCase() === 'true');
 
-        // If regex found nothing useful, fall back to the raw text as plain content
+        
         if (!parsedJson.message1 && !parsedJson.message2) {
             parsedJson.message2 = rawText.trim();
         }
@@ -276,7 +276,7 @@ function processInput() {
 
 
             if (parsedJson.message1 && parsedJson.message1.trim() !== "") {
-                // Render message1 as markdown for the Combined Trade Analysis section
+                
                 const mdHtml1 = typeof marked !== 'undefined' ? marked.parse(parsedJson.message1) : parsedJson.message1;
 
                 resultHtml += `
@@ -311,10 +311,10 @@ function processInput() {
 
 
             if (parsedJson.trigger === true && parsedJson.message2) {
-                // trigger=true: show clickable notification; opens chat on click
+                
                 setTimeout(() => showTriggerNotif(parsedJson.message2), 800);
             } else if (parsedJson.message2 && !parsedJson.message1) {
-                // Only message2 returned — treat as a chat-only response
+                
                 const mapContainer = document.getElementById('mapContainer');
                 if (mapContainer) mapContainer.style.display = 'none';
                 resultCard.innerHTML = '<p>Query passed to AI Advisor...</p>';
@@ -842,7 +842,7 @@ function processCart() {
             document.body.classList.add('results-shown');
 
             const parsedJson = extractJsonFromLangflow(data);
-            // message1 goes to the result card (Combined Trade Analysis)
+            
             const displayText = parsedJson.message1 || parsedJson.message2 || 'Analysis complete.';
             const mdText = typeof marked !== 'undefined' ? marked.parse(displayText) : displayText;
 
@@ -881,7 +881,7 @@ function processCart() {
                 }
             });
 
-            // message2 + trigger: show pop-up notification that opens chat on click
+            
             if (parsedJson.trigger === true && parsedJson.message2) {
                 setTimeout(() => showTriggerNotif(parsedJson.message2), 800);
             } else if (parsedJson.message2 && !parsedJson.message1) {
@@ -1059,7 +1059,7 @@ function showToast(msg) {
     _toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
 
-// ── Trigger Notification helpers ──────────────────────────────────────────
+
 let _triggerMessage2 = '';
 let _triggerDismissTimer = null;
 
@@ -1068,7 +1068,7 @@ function showTriggerNotif(message2) {
     const notif = document.getElementById('triggerNotif');
     if (!notif) return;
     notif.classList.add('show');
-    // Auto-dismiss after 12 seconds
+    
     clearTimeout(_triggerDismissTimer);
     _triggerDismissTimer = setTimeout(hideTriggerNotif, 12000);
 }
@@ -1081,11 +1081,11 @@ function hideTriggerNotif() {
 
 function triggerNotifOpen() {
     hideTriggerNotif();
-    // Open the bottom-right AI Assistant widget (message icon)
+    
     if (!isChatOpen) toggleChat();
     if (_triggerMessage2) {
         const mdHtml2 = typeof marked !== 'undefined' ? marked.parse(_triggerMessage2) : _triggerMessage2;
-        // Slight delay so chat window animation finishes first
+        
         setTimeout(() => {
             const msg = document.createElement('div');
             msg.className = 'message bot-message';
@@ -1312,13 +1312,13 @@ function showDutyWarning(dutyRate) {
 
     warningEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="font-size: 1.4rem;"></i> Be careful, base duty is >= 15% (${dutyRate}%)`;
 
-    // Animate in
+    
     requestAnimationFrame(() => {
         warningEl.style.transform = 'translateX(-50%) translateY(0)';
         warningEl.style.opacity = '1';
     });
 
-    // Remove after 4 seconds
+    
     setTimeout(() => {
         warningEl.style.transform = 'translateX(-50%) translateY(-100%)';
         warningEl.style.opacity = '0';
